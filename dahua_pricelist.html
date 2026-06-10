@@ -147,8 +147,7 @@ function build(){
       if(s&&!item.s.toLowerCase().includes(s)&&!item.d.toLowerCase().includes(s)&&!(item.sp&&item.sp.toLowerCase().includes(s)))return;
       if(item.g!==lastG){lastG=item.g;if(item.g)rows+='<tr class="group-row"><td colspan="6">'+item.g+'</td></tr>';}
       const w=fmtW(item.w);
-      const imgKey=item.img?item.img.replace('.jpg',''):'';
-      const imgSrc=imgKey&&typeof IMAGES!=='undefined'&&IMAGES[imgKey]?'data:image/jpeg;base64,'+IMAGES[imgKey]:'';
+      const imgSrc=item.s&&typeof IMAGES!=='undefined'&&IMAGES[item.s]?'data:image/jpeg;base64,'+IMAGES[item.s]:'';
       const img=imgSrc?'<img class="thumb" loading="lazy" src="'+imgSrc+'" onclick="zoom(this.src)" alt="">':'<span class="thumb-empty"></span>';
       rows+='<tr><td>'+img+'</td>'
         +'<td><span class="sku" title="'+item.s+'">'+item.s+'</span></td>'
@@ -168,8 +167,7 @@ function build(){
       if(s&&!item.s.toLowerCase().includes(s)&&!item.d.toLowerCase().includes(s)&&!(item.sp&&item.sp.toLowerCase().includes(s)))return;
       if(item.g!==lastGC){lastGC=item.g;if(item.g)cards+='<div class="card-group">'+item.g+'</div>';}
       const w=fmtW(item.w);
-      const cimgKey=item.img?item.img.replace('.jpg',''):'';
-      const cimgSrc=cimgKey&&typeof IMAGES!=='undefined'&&IMAGES[cimgKey]?'data:image/jpeg;base64,'+IMAGES[cimgKey]:'';
+      const cimgSrc=item.s&&typeof IMAGES!=='undefined'&&IMAGES[item.s]?'data:image/jpeg;base64,'+IMAGES[item.s]:'';
       const cimg=cimgSrc?'<img class="card-img" loading="lazy" src="'+cimgSrc+'" onclick="zoom(this.src)" alt="">':'<span class="card-img-empty"></span>';
       const pr=(!item.p||item.p==='None'||item.p==='nan'||item.p==='')?'<span class="card-price-req">По запросу</span>':'<span class="card-price">'+parseInt(item.p).toLocaleString('ru-RU')+' \u20bd</span>';
       cards+='<div class="card">'+cimg+'<div class="card-body">'
