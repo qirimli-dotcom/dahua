@@ -590,7 +590,7 @@ function exportCartPDF(){
   docPdf.text('Dahua Technology \u00b7 '+new Date().toLocaleDateString('ru-RU'),40,y);
   y+=22;
   docPdf.setFontSize(8.5);
-  const colX={img:40,sku:78,desc:185,qty:402,price:442,sum:495};
+  const colX={img:40,sku:78,desc:215,qty:402,price:442,sum:495};
   docPdf.setFont('Roboto','bold');
   docPdf.text('Фото',colX.img,y);
   docPdf.text('Артикул',colX.sku,y);
@@ -607,8 +607,8 @@ function exportCartPDF(){
     if(y>730){docPdf.addPage();y=40;}
     const sum=cartItemSum(it);
     if(sum!==null)total+=sum;
-    const descLines=docPdf.splitTextToSize(it.desc,205);
-    const skuLines=docPdf.splitTextToSize(it.sku,100);
+    const descLines=docPdf.splitTextToSize(it.desc,175);
+    const skuLines=docPdf.splitTextToSize(it.sku,130);
     const rowH=Math.max(32,Math.max(descLines.length,skuLines.length)*10+4);
     if(it.img){
       try{
