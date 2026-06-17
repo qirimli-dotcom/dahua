@@ -358,7 +358,8 @@ function build(){
       const imgSrc=item.s&&typeof IMAGES!=='undefined'&&IMAGES[item.s]?IMAGES[item.s]:'';
       const img=imgSrc?'<img class="thumb" loading="lazy" src="'+imgSrc+'" onclick="zoom(this.src)" alt="">':'<span class="thumb-empty"></span>';
       const descAttr=(item.d||'').replace(/"/g,'&quot;');
-      const cartBtn='<button class="add-cart-btn" data-sku="'+item.s+'" data-desc="'+descAttr+'" data-price="'+(item.p||'')+'" data-img="'+(imgSrc||'').replace(/"/g,'&quot;')+'" onclick="openQtyModal(this)"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg><span class="add-cart-label">В КП</span></button>';
+      const spAttr=(item.sp||'').replace(/"/g,'&quot;');
+      const cartBtn='<button class="add-cart-btn" data-sku="'+item.s+'" data-desc="'+descAttr+'" data-sp="'+spAttr+'" data-price="'+(item.p||'')+'" data-img="'+(imgSrc||'').replace(/"/g,'&quot;')+'" onclick="openQtyModal(this)"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg><span class="add-cart-label">В КП</span></button>';
       rows+='<tr><td>'+img+'</td>'
         +'<td><span class="sku" title="'+item.s+'">'+item.s+'</span></td>'
         +'<td><div class="desc-main" title="'+(item.d||'')+(item.sp?' | '+item.sp:'')+'">'+(item.d||'')+'</div>'+(item.sp?'<div class="desc-spec">'+item.sp+'</div>':'')+'</td>'
@@ -381,7 +382,8 @@ function build(){
       const cimg=cimgSrc?'<img class="card-img" loading="lazy" src="'+cimgSrc+'" onclick="zoom(this.src)" alt="">':'<span class="card-img-empty"></span>';
       const pr=(!item.p||item.p==='None'||item.p==='nan'||item.p==='')?'<span class="card-price-req">По запросу</span>':'<span class="card-price">'+parseInt(item.p).toLocaleString('ru-RU')+' \u20bd</span>';
       const cdescAttr=(item.d||'').replace(/"/g,'&quot;');
-      const cCartBtn='<button class="add-cart-btn card-add-cart" data-sku="'+item.s+'" data-desc="'+cdescAttr+'" data-price="'+(item.p||'')+'" data-img="'+(cimgSrc||'').replace(/"/g,'&quot;')+'" onclick="openQtyModal(this)"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg><span class="add-cart-label">В КП</span></button>';
+      const cspAttr=(item.sp||'').replace(/"/g,'&quot;');
+      const cCartBtn='<button class="add-cart-btn card-add-cart" data-sku="'+item.s+'" data-desc="'+cdescAttr+'" data-sp="'+cspAttr+'" data-price="'+(item.p||'')+'" data-img="'+(cimgSrc||'').replace(/"/g,'&quot;')+'" onclick="openQtyModal(this)"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg><span class="add-cart-label">В КП</span></button>';
       cards+='<div class="card">'+cimg+'<div class="card-body">'
         +'<div class="card-sku">'+item.s+'</div>'
         +'<div class="card-desc">'+(item.d||'')+'</div>'
@@ -452,8 +454,8 @@ function updateCartBadge(){
 function refreshCartButtons(){
   const btns=document.querySelectorAll('.add-cart-btn');
   btns.forEach(function(btn){
-    const sku=btn.dataset.sku;
-    const it=cart.find(function(c){return c.sku===sku;});
+    const key=btn.dataset.sku+'|'+(btn.dataset.sp||'');
+    const it=cart.find(function(c){return c.key===key;});
     const label=btn.querySelector('.add-cart-label');
     if(it){
       btn.classList.add('added');
@@ -468,6 +470,8 @@ function refreshCartButtons(){
 function openQtyModal(btn){
   qtyModalState={
     sku:btn.dataset.sku,
+    sp:btn.dataset.sp||'',
+    key:btn.dataset.sku+'|'+(btn.dataset.sp||''),
     desc:btn.dataset.desc,
     price:btn.dataset.price,
     img:btn.dataset.img,
@@ -493,10 +497,10 @@ function qtyStep(dir){
 }
 function confirmAddToCart(){
   if(!qtyModalState)return;
-  const existing=cart.find(function(it){return it.sku===qtyModalState.sku;});
+  const existing=cart.find(function(it){return it.key===qtyModalState.key;});
   if(existing){existing.qty+=qtyModalState.qty;}
   else{
-    cart.push({sku:qtyModalState.sku,desc:qtyModalState.desc,price:qtyModalState.price,img:qtyModalState.img,qty:qtyModalState.qty});
+    cart.push({key:qtyModalState.key,sku:qtyModalState.sku,sp:qtyModalState.sp,desc:qtyModalState.desc,price:qtyModalState.price,img:qtyModalState.img,qty:qtyModalState.qty});
   }
   saveCart();updateCartBadge();
   const overlay=document.getElementById('qty-modal-overlay');
