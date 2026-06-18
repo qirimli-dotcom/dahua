@@ -664,14 +664,14 @@ function closeSpecModal(){
   var saved = localStorage.getItem('dh-theme');
   var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   var dark = saved ? saved === 'dark' : prefersDark;
-  if (dark) document.documentElement.setAttribute('data-theme','dark');
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   document.getElementById('iconMoon').style.display = dark ? 'none' : '';
   document.getElementById('iconSun').style.display = dark ? '' : 'none';
 })();
 function toggleTheme(){
   var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   if(isDark){
-    document.documentElement.removeAttribute('data-theme');
+    document.documentElement.setAttribute('data-theme','light');
     localStorage.setItem('dh-theme','light');
     document.getElementById('iconMoon').style.display = '';
     document.getElementById('iconSun').style.display = 'none';
