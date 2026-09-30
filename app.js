@@ -1,7 +1,7 @@
 'use strict';
 /* Dahua прайс IT-Trade — PWA. Данные: data.js (PRICE, DATA), images.js (IMAGES). */
 (function () {
-  const APP_VER = '1.0';
+  const APP_VER = '1.1';
   const VAT = 22;
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -118,22 +118,66 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
       return `<a class="catc" href="#/c/${i}"><b>${esc(c.name)}</b><span>${c.items.length} поз.</span>${f ? `<img loading="lazy" src="${thumb(f.s)}" data-fb="${full(f.s)}" alt="">` : ''}</a>`;
     }).join('')}</div>`;
   }
-  function vCat(ci, gi) {
+  /* группы раздела для фильтра «Серия»: «Тип _ Серия» -> заголовок типа + серии */
+  function splitG(g) {
+    g = String(g || '').replace(/C(?=ерия)/g, 'С');
+    const i = g.indexOf('_');
+    if (i < 0) return [g.trim().replace(/\s+/g, ' '), ''];
+    return [g.slice(0, i).trim().replace(/\s+/g, ' '), g.slice(i + 1).replace(/\s*Серия\s*/g, ' ').trim()];
+  }
+  function groupModel(c) {
+    if (c.model) return c.model;
+    const cnt = g => c.items.filter(x => x.g === g).length, rows = [];
+    if (!c.groups.some(g => g.indexOf('_') >= 0)) {
+      c.groups.forEach((g, gi) => rows.push({ t: 'i', gi: [gi], label: cleanG(g), tag: cleanG(g), n: cnt(g) }));
+    } else {
+      const order = [], map = {};
+      c.groups.forEach((g, gi) => { const [tp, sr] = splitG(g); if (!map[tp]) { map[tp] = []; order.push(tp); } map[tp].push({ gi, sr, n: cnt(g) }); });
+      const labels = {}; order.forEach(tp => map[tp].forEach(a => { const l = a.sr || tp; labels[l] = (labels[l] || 0) + 1; }));
+      order.forEach(tp => {
+        const arr = map[tp];
+        if (arr.length === 1 && !arr[0].sr) { rows.push({ t: 'i', gi: [arr[0].gi], label: tp, tag: tp, n: arr[0].n }); return; }
+        rows.push({ t: 'h', gi: arr.map(a => a.gi), label: tp, n: arr.reduce((s, a) => s + a.n, 0) });
+        arr.forEach(a => { const l = a.sr || tp; rows.push({ t: 'i', gi: [a.gi], label: l, tag: labels[l] > 1 ? tp + ' ' + l : l, n: a.n, sub: true }); });
+      });
+    }
+    c.model = rows; c.tagOf = {}; rows.forEach(r => { if (r.t === 'i') c.tagOf[r.gi[0]] = r.tag; });
+    return rows;
+  }
+  const parseSel = (c, str) => new Set(String(str || '').split(',').filter(x => x !== '' && !isNaN(x)).map(Number).filter(n => n >= 0 && n < c.groups.length));
+  const selHash = (ci, set) => '#/c/' + ci + (set.size ? '/' + Array.from(set).sort((a, b) => a - b).join(',') : '');
+  const dd = { open: false, ci: null, pending: null, sel: null };
+
+  function vCat(ci, selStr) {
     const c = CATS[ci]; if (!c) return vHome();
     renderSide(ci);
-    const g = gi != null ? c.groups[gi] : null;
-    let list = g ? c.items.filter(x => x.g === g) : c.items;
+    const sel = parseSel(c, selStr), hasF = c.groups.length > 1;
+    if (hasF) groupModel(c);
+    let list = sel.size ? c.items.filter(x => sel.has(c.groups.indexOf(x.g))) : c.items;
     list = sortItems(list);
     let body = '', lastG = null;
-    const withHeads = !g && st.sort === 'def' && c.groups.length > 1;
+    const withHeads = st.sort === 'def' && new Set(list.map(x => x.g)).size > 1;
     list.forEach(it => {
       if (withHeads && it.g !== lastG) { lastG = it.g; body += `<div class="gh">${esc(cleanG(it.g))}</div>`; }
       body += card(it);
     });
-    const chips = c.groups.length > 1 ? `<div class="chips"><a href="#/c/${ci}"${g ? '' : ' class="on"'}>Все<em>${c.items.length}</em></a>${c.groups.map((x, i) => `<a href="#/c/${ci}/${i}"${g === x ? ' class="on"' : ''}>${esc(cleanG(x))}<em>${c.items.filter(y => y.g === x).length}</em></a>`).join('')}</div>` : '';
-    view.innerHTML = `<div class="ttl"><a class="back" href="#/" aria-label="Все разделы">‹</a><h1>${esc(c.name)}</h1><span class="n">${list.length} поз.</span>${sortSel()}</div>${chips}<div class="grid">${body}</div>`;
-    const on = $('.chips .on', view); if (on && gi != null) on.scrollIntoView({ block: 'nearest', inline: 'center' });
+    const btnLab = !sel.size ? 'Серия' : sel.size === 1 ? 'Серия: ' + esc(c.tagOf[Array.from(sel)[0]]) : 'Серия: выбрано ' + sel.size;
+    const fbar = `<div class="fbar">${hasF ? `<div class="ddw" id="ddw"><button type="button" class="dd${sel.size ? ' act' : ''}" id="ddBtn" aria-haspopup="true" aria-expanded="false"><span>${btnLab}</span><b>▾</b></button><div class="pop" id="ddPop" hidden></div></div>` : ''}<span class="sp"></span>${sortSel()}</div>`;
+    const tags = sel.size ? `<div class="ftags">${Array.from(sel).sort((a, b) => a - b).map(gi => `<button type="button" data-untag="${gi}">${esc(c.tagOf[gi])} <i>✕</i></button>`).join('')}<button type="button" class="lnk" data-clearall>Сбросить всё</button></div>` : '';
+    view.innerHTML = `<div class="ttl"><a class="back" href="#/" aria-label="Все разделы">‹</a><h1>${esc(c.name)}</h1><span class="n">${sel.size ? list.length + ' из ' + c.items.length : list.length} поз.</span></div>${fbar}${tags}<div class="grid">${body}</div>`;
+    dd.open = false; dd.ci = ci; dd.sel = sel; document.body.classList.remove('dd-open');
   }
+  function ddRender() {
+    const c = CATS[dd.ci], rows = groupModel(c), P = dd.pending;
+    const n = P.size ? c.items.filter(x => P.has(c.groups.indexOf(x.g))).length : c.items.length;
+    $('#ddPop').innerHTML = `<div class="pop-h"><b>Серия</b><button type="button" class="pop-x" data-ddclose aria-label="Закрыть">✕</button></div><div class="pop-l">${rows.map(r => {
+      if (r.t === 'h') { const all = r.gi.every(g => P.has(g)), some = r.gi.some(g => P.has(g)); return `<button type="button" class="ckh${all ? ' on' : some ? ' part' : ''}" data-h="${r.gi.join(',')}"><i></i><span>${esc(r.label)}</span><em>${r.n}</em></button>`; }
+      const on = P.has(r.gi[0]); return `<button type="button" class="ck${on ? ' on' : ''}${r.sub ? ' sub' : ''}" data-gi="${r.gi[0]}" role="menuitemcheckbox" aria-checked="${on}"><i></i><span>${esc(r.label)}</span><em>${r.n}</em></button>`;
+    }).join('')}</div><div class="pf"><button type="button" class="lnk" data-reset>Сбросить</button><button type="button" class="ok" data-apply>Показать ${n}</button></div>`;
+  }
+  function ddOpen() { if (!$('#ddPop')) return; dd.pending = new Set(dd.sel); dd.open = true; ddRender(); $('#ddPop').hidden = false; $('#ddBtn').setAttribute('aria-expanded', 'true'); $('#ddw').classList.add('open'); if (mqPhone.matches) document.body.classList.add('dd-open', 'noscroll'); }
+  function ddClose() { if (!dd.open) return; dd.open = false; const p = $('#ddPop'); if (p) p.hidden = true; const b = $('#ddBtn'); if (b) b.setAttribute('aria-expanded', 'false'); const w = $('#ddw'); if (w) w.classList.remove('open'); document.body.classList.remove('dd-open'); if (sheet.hidden && !document.body.classList.contains('kp-open')) document.body.classList.remove('noscroll'); }
+  function ddApply(set) { const h = selHash(dd.ci, set); ddClose(); if (location.hash !== h) location.hash = h; }
 
   const RU = 'йцукенгшщзхъфывапролджэячсмитьбю', EN = "qwertyuiop[]asdfghjkl;'zxcvbnm,.";
   const swapLayout = s => s.replace(/[а-я]/g, ch => { const i = RU.indexOf(ch); return i >= 0 ? EN[i] : ch; });
@@ -185,7 +229,7 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
     if (!force && st.rendered === h) return;
     const p = parse(h);
     if (p[0] !== 's') { st.q = ''; if (qIn.value && document.activeElement !== qIn) qIn.value = ''; $('#qx').hidden = !qIn.value; $('#qn').textContent = ITEMS.length.toLocaleString('ru-RU'); }
-    if (p[0] === 'c') vCat(+p[1], p[2] !== undefined && p[2] !== '' ? +p[2] : null);
+    if (p[0] === 'c') vCat(+p[1], p[2]);
     else if (p[0] === 's' && p[1]) { st.q = p[1]; if (qIn.value !== p[1] && document.activeElement !== qIn) qIn.value = p[1]; $('#qx').hidden = false; vSearch(p[1]); }
     else if (p[0] === 'fav') vFav();
     else vHome();
@@ -229,6 +273,7 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
     if (e.key === 'Escape') {
       if (!$('#zoom').hidden) { $('#zoom').hidden = true; return; }
       if (!$('#menu').hidden) { closeMenu(); return; }
+      if (dd.open) { ddClose(); return; }
       if (!sheet.hidden) { closeSheet(); return; }
       if (document.body.classList.contains('kp-open')) closeKP();
     }
@@ -237,6 +282,22 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
   /* ---------- клики в списках ---------- */
   function openProduct(s) { sheetPushed = true; location.hash = '#/p/' + encodeURIComponent(s); }
   view.addEventListener('click', e => {
+    if (dd.open && e.target.id === 'ddw') { ddClose(); return; }
+    if (e.target.closest('#ddBtn')) { dd.open ? ddClose() : ddOpen(); return; }
+    if (dd.open && e.target.closest('#ddPop')) {
+      const P = dd.pending, t = e.target;
+      if (t.closest('[data-ddclose]')) return ddClose();
+      if (t.closest('[data-apply]')) return ddApply(P);
+      if (t.closest('[data-reset]')) { P.clear(); return ddRender(); }
+      const h = t.closest('[data-h]');
+      if (h) { const gs = h.dataset.h.split(',').map(Number), all = gs.every(g => P.has(g)); gs.forEach(g => all ? P.delete(g) : P.add(g)); return ddRender(); }
+      const it = t.closest('[data-gi]');
+      if (it) { const g = +it.dataset.gi; P.has(g) ? P.delete(g) : P.add(g); return ddRender(); }
+      return;
+    }
+    const ut = e.target.closest('[data-untag]');
+    if (ut) { const s2 = new Set(dd.sel); s2.delete(+ut.dataset.untag); location.hash = selHash(dd.ci, s2); return; }
+    if (e.target.closest('[data-clearall]')) { location.hash = selHash(dd.ci, new Set()); return; }
     const c = e.target.closest('.card');
     if (e.target.closest('#moreBtn')) { st.limit += 120; const y = scrollY; vSearch(st.q); scrollTo(0, y); return; }
     if (!c) return;
@@ -533,6 +594,7 @@ ${specs.length ? `<div class="tags">${specs.map(x => `<span>${esc(x)}</span>`).j
   }
   function closeMenu() { $('#menu').hidden = true; }
   $('#menuBtn').addEventListener('click', e => { e.stopPropagation(); $('#menu').hidden ? openMenu() : closeMenu(); });
+  document.addEventListener('click', e => { if (dd.open && !e.composedPath().some(n => n.id === 'ddw')) ddClose(); });
   document.addEventListener('click', e => { if (!$('#menu').hidden && !e.target.closest('#menu') && !e.target.closest('#menuBtn')) closeMenu(); });
   $('#menu').addEventListener('click', e => {
     const b = e.target.closest('[data-act]'); if (!b) return;
