@@ -1,7 +1,7 @@
 'use strict';
 /* Dahua прайс IT-Trade — PWA. Данные: data.js (PRICE, DATA), images.js (IMAGES). */
 (function () {
-  const APP_VER = '7';
+  const APP_VER = '8';
   const VAT = 22;
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -80,7 +80,7 @@
   const lk = { on: false, y: 0, reset: false };
   function syncLock() {
     const b = document.body;
-    const need = !sheet.hidden || b.classList.contains('dd-open') || (b.classList.contains('kp-open') && !mqDesk.matches);
+    const need = !sheet.hidden || b.classList.contains('dd-open') || b.classList.contains('qs-open') || (b.classList.contains('kp-open') && !mqDesk.matches);
     if (need && !lk.on) { lk.on = true; lk.y = scrollY; b.style.top = -lk.y + 'px'; b.classList.add('locked'); }
     else if (!need && lk.on) { lk.on = false; b.classList.remove('locked'); b.style.top = ''; window.scrollTo(0, lk.reset ? 0 : lk.y); lk.reset = false; }
   }
@@ -239,6 +239,7 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
   /* ---------- роутер ---------- */
   function parse(h) { return (h || '#/').replace(/^#\/?/, '').split('/').map(x => { try { return decodeURIComponent(x); } catch (e) { return x; } }); }
   function renderBase(h, force) {
+    closeQP();
     if (!force && st.rendered === h) return;
     const p = parse(h);
     if (p[0] !== 's') { st.q = ''; if (qIn.value && document.activeElement !== qIn) qIn.value = ''; $('#qx').hidden = !qIn.value; $('#qn').textContent = ITEMS.length.toLocaleString('ru-RU'); }
@@ -288,6 +289,7 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
       if (!$('#menu').hidden) { closeMenu(); return; }
       if (dd.open) { ddClose(); return; }
       if ($('.spv', view)) { closeInfo(); return; }
+      if (qp) { closeQP(); return; }
       if (!sheet.hidden) { closeSheet(); return; }
       if (document.body.classList.contains('kp-open')) closeKP();
     }
@@ -312,17 +314,14 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
     const ut = e.target.closest('[data-untag]');
     if (ut) { const s2 = new Set(dd.sel); s2.delete(+ut.dataset.untag); location.hash = selHash(dd.ci, s2); return; }
     if (e.target.closest('[data-clearall]')) { location.hash = selHash(dd.ci, new Set()); return; }
+    if (e.target.closest('.qp')) { qpClick(e); return; }
     const c = e.target.closest('.card');
     if (e.target.closest('#moreBtn')) { st.limit += 120; const y = scrollY; vSearch(st.q); scrollTo(0, y); return; }
     if (!c) return;
     if (e.target.closest('[data-infox]')) { closeInfo(); return; }
     if (e.target.closest('[data-info]')) { toggleInfo(c); return; }
     if (e.target.closest('.spv') && !e.target.closest('[data-open]')) return;
-    if (e.target.closest('[data-add]')) {
-      if (kpQty(c.dataset.s)) openProduct(c.dataset.s);
-      else { setQty(c.dataset.s, 1); toast('Добавлено в КП: ' + c.dataset.s, 'Открыть', () => { location.hash = '#/kp'; }); }
-      return;
-    }
+    if (e.target.closest('[data-add]')) { openQP(c); return; }
     if (e.target.closest('[data-open]')) openProduct(c.dataset.s);
   });
   function closeInfo() { $$('.spv', view).forEach(x => x.remove()); $$('.inf.on', view).forEach(b => { b.classList.remove('on'); b.setAttribute('aria-expanded', 'false'); }); }
@@ -335,6 +334,79 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
     const b = $('.inf', c); b.classList.add('on'); b.setAttribute('aria-expanded', 'true');
   }
   document.addEventListener('click', e => { if ($('.spv', view) && !e.target.closest('.spv') && !e.target.closest('[data-info]')) closeInfo(); });
+
+  /* ---------- выбор количества по «+» ---------- */
+  let qp = null;
+  function qpChips(it) {
+    const m = parseInt(it.m) || 0, base = [1, 5, 10];
+    if (m > 0 && base.indexOf(m) < 0) base.push(m); else base.push(20);
+    return base.map(n => ({ n, pk: n === m }));
+  }
+  function qpInner() {
+    const it = BYSKU.get(qp.s), u = unitPrice(it), inKp = kpQty(qp.s), q = qp.q;
+    const sum = u != null && q > 0 ? ' · ' + money(u * q) : '';
+    return `${qp.phone ? `<button type="button" class="x" data-qx aria-label="Закрыть">✕</button><div class="it">${imgTag(qp.s, '')}<div><b>${esc(qp.s)}</b><span>${u != null ? money(u) + ' за шт' : 'цена по запросу'}${parseInt(it.m) > 0 ? ', упаковка ' + parseInt(it.m) + ' шт' : ''}</span></div></div>`
+      : `<div class="qp-h"><b>${esc(qp.s)}</b><button type="button" data-qx aria-label="Закрыть">✕</button></div>`}
+<div class="stp"><button type="button" data-qdec aria-label="Меньше">−</button><input id="qpIn" inputmode="numeric" pattern="[0-9]*" value="${q || ''}" aria-label="Количество"><button type="button" data-qinc aria-label="Больше">+</button></div>
+<div class="qp-q">${qpChips(it).map(c => `<button type="button" data-qset="${c.n}"${c.n === q ? ' class="on"' : ''}>${c.n}${c.pk ? '<small>упак.</small>' : ''}</button>`).join('')}</div>
+<button type="button" class="qp-go" data-qgo${q > 0 ? '' : ' disabled'}>${inKp ? 'Обновить' : 'В КП'} <span>${q > 0 ? q + ' шт' + sum : ''}</span></button>${inKp ? '<button type="button" class="qp-del" data-qdel>Убрать из КП</button>' : ''}`;
+  }
+  function qpUpdate(keepInput) {
+    const root = qp.el, it = BYSKU.get(qp.s), u = unitPrice(it), q = qp.q, inKp = kpQty(qp.s);
+    if (!keepInput) $('#qpIn', root).value = q || '';
+    $$('[data-qset]', root).forEach(b => b.classList.toggle('on', +b.dataset.qset === q));
+    const g = $('[data-qgo]', root); g.disabled = !(q > 0);
+    g.innerHTML = `${inKp ? 'Обновить' : 'В КП'} <span>${q > 0 ? q + ' шт' + (u != null ? ' · ' + money(u * q) : '') : ''}</span>`;
+  }
+  function openQP(card) {
+    const s = card.dataset.s;
+    if (qp && qp.s === s && !qp.phone) { closeQP(); return; }
+    closeQP(); closeInfo();
+    if (!BYSKU.has(s)) return;
+    qp = { s, q: kpQty(s) || 1, phone: mqPhone.matches };
+    if (qp.phone) {
+      const w = document.createElement('div'); w.id = 'qs';
+      w.innerHTML = '<div class="qs-bg" data-qx></div><div class="qs" role="dialog" aria-label="Количество"></div>';
+      document.body.appendChild(w); qp.el = $('.qs', w); qp.el.innerHTML = qpInner(); document.body.classList.add('qs-open');
+    } else {
+      card.insertAdjacentHTML('beforeend', '<div class="qp" role="dialog" aria-label="Количество"></div>');
+      qp.el = $('.qp', card); qp.el.innerHTML = qpInner();
+      const i = $('#qpIn', qp.el); i.focus(); i.select();
+    }
+  }
+  function closeQP() {
+    if (!qp) return;
+    if (qp.phone) { const w = $('#qs'); if (w) w.remove(); document.body.classList.remove('qs-open'); }
+    else if (qp.el) qp.el.remove();
+    qp = null;
+  }
+  function qpGo() {
+    if (!qp || !(qp.q > 0)) return;
+    const s = qp.s, q = qp.q, had = kpQty(s);
+    setQty(s, q); closeQP();
+    toast((had ? 'Обновлено в КП: ' : 'Добавлено в КП: ') + s + ', ' + q + ' шт', 'Открыть', () => { location.hash = '#/kp'; });
+  }
+  function qpClick(e) {
+    if (!qp) return;
+    const t = e.target;
+    if (t.closest('[data-qx]')) return closeQP();
+    if (t.closest('[data-qdec]')) { qp.q = Math.max(1, (qp.q || 1) - 1); return qpUpdate(); }
+    if (t.closest('[data-qinc]')) { qp.q = Math.min(99999, (qp.q || 0) + 1); return qpUpdate(); }
+    const st = t.closest('[data-qset]'); if (st) { qp.q = +st.dataset.qset; return qpUpdate(); }
+    if (t.closest('[data-qgo]')) return qpGo();
+    if (t.closest('[data-qdel]')) { const s = qp.s; setQty(s, 0); closeQP(); toast('Убрано из КП: ' + s); }
+  }
+  document.addEventListener('click', e => {
+    if (!qp) return;
+    if (qp.phone) { if (e.target.closest('#qs')) qpClick(e); return; }
+    if (!e.composedPath().some(n => n.classList && (n.classList.contains('qp') || n.classList.contains('add')))) closeQP();
+  });
+  document.addEventListener('input', e => {
+    if (!qp || e.target.id !== 'qpIn') return;
+    const v = e.target.value.replace(/\D/g, '').slice(0, 5); if (v !== e.target.value) e.target.value = v;
+    qp.q = parseInt(v) || 0; qpUpdate(true);
+  });
+  document.addEventListener('keydown', e => { if (qp && e.target.id === 'qpIn' && e.key === 'Enter') { e.preventDefault(); qpGo(); } });
   view.addEventListener('change', e => {
     if (e.target.id === 'sortSel') { st.sort = e.target.value; save('dh-sort', st.sort); renderBase(st.base, true); }
   });
