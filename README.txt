@@ -23,4 +23,10 @@ Dahua — прайс IT-Trade (PWA)
   3. Залить на GitHub. Приложения у пользователей подтянут новый прайс при следующем
      запуске с интернетом, sw.js трогать не нужно.
 
+Кабинет монтажников (Supabase, с версии 11)
+  config.js      — адрес проекта Supabase и publishable-ключ. Пусто — кабинет выключен.
+  admin.html     — твоя админка: https://dahua.it-trade.com.ru/admin.html
+  Настройка Supabase — в архиве dahua_supabase_v11.zip (SQL + инструкция).
+  Пока config.js пустой, каталог и КП работают как раньше.
+
 Если менялся код приложения (app.js, app.css, sw.js) — поменять VERSION в sw.js.

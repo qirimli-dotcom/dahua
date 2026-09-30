@@ -1,9 +1,9 @@
 /* Dahua прайс IT-Trade — service worker.
    Страница и данные: сначала сеть, без сети — кэш (новый прайс подтягивается сам).
    Фото и превью: кэш, затем сеть. При изменении этого файла меняй VERSION. */
-const VERSION = 'dahua-app-v8';
+const VERSION = 'dahua-app-v12';
 const IMG_CACHE = 'dahua-img';
-const SHELL = ['./', 'index.html', 'app.css', 'app.js', 'data.js', 'images.js', 'manifest.webmanifest',
+const SHELL = ['./', 'index.html', 'app.css', 'app.js', 'config.js', 'data.js', 'images.js', 'manifest.webmanifest',
   'assets/logo-it.png', 'assets/logo-dahua.png', 'assets/icons/favicon-32.png', 'assets/icons/icon-192.png',
   'assets/icons/icon-512.png', 'assets/icons/apple-touch-icon.png', 'assets/icons/maskable-512.png'];
 const EXTRA = ['vendor/jspdf.umd.min.js', 'vendor/xlsx.full.min.js',
@@ -22,7 +22,7 @@ self.addEventListener('activate', e => {
 });
 
 const isImg = p => /\/(images|thumbs)\//.test(p);
-const isFresh = (req, p) => req.mode === 'navigate' || /\/(index\.html|app\.js|app\.css|data\.js|images\.js|manifest\.webmanifest)?$/.test(p);
+const isFresh = (req, p) => req.mode === 'navigate' || /\/(index\.html|app\.js|app\.css|config\.js|data\.js|images\.js|manifest\.webmanifest|admin\.html|admin\.js|admin\.css)?$/.test(p);
 
 async function networkFirst(req) {
   const c = await caches.open(VERSION);

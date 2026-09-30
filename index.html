@@ -32,6 +32,7 @@
     <span class="net" id="net" hidden>Офлайн</span>
     <button type="button" class="hbtn" id="installBtn" hidden>Установить</button>
     <a class="hbtn" href="#/fav" id="favLink">♡ <span id="favN">0</span></a>
+    <button type="button" class="hbtn buyb" id="buyBtn" hidden aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg>закуп</button>
     <button type="button" class="hbtn more" id="menuBtn" aria-label="Меню" aria-haspopup="true">⋯</button>
     <a class="kpb" href="#/kp" id="kpBtn">КП <b id="kpN">0</b><span id="kpSum"></span></a>
   </div>
@@ -54,10 +55,12 @@
 </nav>
 
 <div class="sheet" id="sheet" hidden></div>
+<div class="sheet" id="modal" hidden></div>
 <div class="zoom" id="zoom" hidden><img alt=""></div>
 <div class="menu" id="menu" hidden role="menu"></div>
 <div class="toast" id="toast" role="status" hidden></div>
 
+<script src="config.js"></script>
 <script src="data.js"></script>
 <script src="images.js"></script>
 <script src="app.js"></script>
