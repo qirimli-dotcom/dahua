@@ -1,7 +1,7 @@
 'use strict';
 /* Dahua прайс IT-Trade — PWA. Данные: data.js (PRICE, DATA), images.js (IMAGES). */
 (function () {
-  const APP_VER = '6';
+  const APP_VER = '7';
   const VAT = 22;
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -602,11 +602,63 @@ ${specs.length ? `<div class="tags">${specs.map(x => `<span>${esc(x)}</span>`).j
   let deferredInstall = null;
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const UA = navigator.userAgent;
+  const isAndroid = /android/i.test(UA);
+  const inApp = /FBAN|FBAV|Instagram|Telegram|WhatsApp|Line\/|VKClient|; wv\)/i.test(UA);
+  const iosOther = isIOS && /CriOS|FxiOS|EdgiOS|YaBrowser|OPiOS/i.test(UA);
+  const isIPad = isIOS && !/iphone|ipod/i.test(UA);
+  const ibState = load('dh-ib', { n: 0, until: 0 });
+  const SVG_SH = '<svg viewBox="0 0 24 24"><path d="M12 15V3.5M8 7.5l4-4 4 4"/><path d="M8 11H6a1.5 1.5 0 0 0-1.5 1.5v7A1.5 1.5 0 0 0 6 21h12a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 18 11h-2"/></svg>';
+  const SVG_ADD = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8.5v7M8.5 12h7"/></svg>';
+  let ibShown = false, ibTimer = null;
+  function ibKind() {
+    if (standalone) return null;
+    if (inApp) return 'inapp';
+    if (isIOS) return (iosOther || isIPad) ? 'ios-top' : 'ios-safari';
+    if (deferredInstall) return 'prompt';
+    if (isAndroid && /Firefox|FxiOS/i.test(UA)) return 'android-menu';
+    return null;
+  }
+  function ibHTML(k) {
+    const ic = '<img class="ib-ic" src="assets/icons/icon-192.png" alt="">';
+    const x = '<button type="button" class="ib-x" data-ibx aria-label="Закрыть">✕</button>';
+    const head = (t, sub) => `<div class="ib-r">${ic}<div class="ib-t"><b>${t}</b><span>${sub}</span></div></div>`;
+    const sub = 'Прайс на рабочем столе, работает без интернета';
+    if (k === 'prompt') return `<div class="ib ibb" role="dialog" aria-label="Установка приложения">${x}${head('Приложение «Dahua»', sub)}<div class="ib-go"><button type="button" class="s" data-ibx>Не сейчас</button><button type="button" class="p" data-ibinstall>Установить</button></div></div>`;
+    if (k === 'android-menu') return `<div class="ib ibt" role="dialog" aria-label="Установка приложения">${x}${head('Установите на телефон', sub)}<div class="ib-st"><div><i>1</i>Откройте меню браузера <b>⋮</b></div><div><i>2</i><b>Установить</b> или <b>Добавить на главный экран</b></div></div><span class="ib-ar r"></span></div>`;
+    if (k === 'inapp') return `<div class="ib ibt" role="dialog" aria-label="Открыть в браузере">${x}${head('Откройте в браузере', 'Из мессенджера установить приложение нельзя')}<div class="ib-st"><div><i>1</i>Нажмите <b>⋯</b> вверху справа</div><div><i>2</i><b>${isIOS ? 'Открыть в Safari' : 'Открыть в браузере'}</b></div></div><div class="ib-go"><button type="button" class="s" data-ibcopy>Скопировать ссылку</button></div><span class="ib-ar r"></span></div>`;
+    const top = k === 'ios-top';
+    return `<div class="ib ${top ? 'ibt' : 'ibb'}" role="dialog" aria-label="Установка приложения">${x}${head('Установите на ' + (isIPad ? 'iPad' : 'iPhone'), 'Значок на экране «Домой», работает без интернета')}<div class="ib-st"><div><i>1</i>Нажмите ${SVG_SH}<b>Поделиться</b> ${top ? 'вверху' : 'внизу'}</div><div><i>2</i>Выберите ${SVG_ADD}<b>На экран «Домой»</b></div><div><i>3</i>Нажмите <b>Добавить</b></div></div><span class="ib-ar${top ? ' r' : ''}"></span></div>`;
+  }
+  function ibAllowed() { return ibState.n < 3 && Date.now() > (ibState.until || 0); }
+  function ibBusy() { return !sheet.hidden || document.body.classList.contains('kp-open') || document.body.classList.contains('dd-open') || !$('#menu').hidden || document.activeElement === qIn; }
+  function showIB(force) {
+    const k = ibKind(); if (!k || ibShown) return;
+    if (!force && (!ibAllowed() || !coarse)) return;
+    if (!force && ibBusy()) { clearTimeout(ibTimer); ibTimer = setTimeout(() => showIB(false), 5000); return; }
+    const w = document.createElement('div'); w.id = 'ib'; w.innerHTML = ibHTML(k); document.body.appendChild(w); ibShown = true;
+  }
+  function hideIB() { const w = $('#ib'); if (w) w.remove(); ibShown = false; }
+  function dismissIB() { hideIB(); ibState.n = (ibState.n || 0) + 1; ibState.until = Date.now() + 14 * 864e5; save('dh-ib', ibState); }
+  document.addEventListener('click', async e => {
+    if (!e.target.closest('#ib')) return;
+    if (e.target.closest('[data-ibx]')) return dismissIB();
+    if (e.target.closest('[data-ibcopy]')) { await copy(location.href.split('#')[0]); toast('Ссылка скопирована, вставьте её в браузер'); return; }
+    if (e.target.closest('[data-ibinstall]') && deferredInstall) {
+      const d = deferredInstall; hideIB(); d.prompt();
+      const r = await d.userChoice.catch(() => ({}));
+      deferredInstall = null; $('#installBtn').hidden = true;
+      if (!r || r.outcome !== 'accepted') dismissIB();
+    }
+  });
+  function ibSchedule() { clearTimeout(ibTimer); ibTimer = setTimeout(() => showIB(false), 18000); }
+  let ibActs = 0;
+  addEventListener('hashchange', () => { if (++ibActs === 2 && !ibShown) { clearTimeout(ibTimer); ibTimer = setTimeout(() => showIB(false), 1500); } });
   addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstall = e; $('#installBtn').hidden = false; });
-  addEventListener('appinstalled', () => { deferredInstall = null; $('#installBtn').hidden = true; toast('Приложение установлено'); });
+  addEventListener('appinstalled', () => { deferredInstall = null; $('#installBtn').hidden = true; ibState.n = 99; save('dh-ib', ibState); hideIB(); toast('Приложение установлено'); });
   async function doInstall() {
     if (deferredInstall) { deferredInstall.prompt(); await deferredInstall.userChoice.catch(() => {}); deferredInstall = null; $('#installBtn').hidden = true; }
-    else if (isIOS) toast('Safari: кнопка «Поделиться» → «На экран Домой»');
+    else if (isIOS || inApp || isAndroid) showIB(true);
     else toast('Меню браузера → «Установить приложение»');
   }
   $('#installBtn').addEventListener('click', doInstall);
@@ -616,7 +668,7 @@ ${specs.length ? `<div class="tags">${specs.map(x => `<span>${esc(x)}</span>`).j
 <button data-act="photos">Скачать фото для офлайна<small id="phInfo">${photos ? 'Уже скачаны, можно обновить' : 'Около 10 МБ, превью всех товаров'}</small><div class="prog" id="phProg" hidden><i></i></div></button>
 <button data-act="all">Весь прайс в Excel<small>${ITEMS.length.toLocaleString('ru-RU')} позиций</small></button>
 <button data-act="reload">Обновить данные<small>Подтянуть свежий прайс с сайта</small></button>
-<div class="inf">Прайс${PR.date ? ' от ' + esc(PR.date) : ''}, версия ${APP_VER}. Цены РРЦ, НДС ${VAT} % включён.</div>`;
+<div class="mi">Прайс${PR.date ? ' от ' + esc(PR.date) : ''}, версия ${APP_VER}. Цены РРЦ, НДС ${VAT} % включён.</div>`;
     m.hidden = false;
   }
   function closeMenu() { $('#menu').hidden = true; }
@@ -679,4 +731,5 @@ ${specs.length ? `<div class="tags">${specs.map(x => `<span>${esc(x)}</span>`).j
   mqPhone.addEventListener && mqPhone.addEventListener('change', () => { if (st.rendered) renderBase(st.base, true); });
   renderKP();
   route();
+  ibSchedule();
 })();
