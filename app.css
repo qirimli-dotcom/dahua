@@ -6,11 +6,12 @@
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{-webkit-text-size-adjust:100%;scroll-padding-top:calc(var(--hh) + 8px)}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-tap-highlight-color:transparent;touch-action:manipulation;scroll-padding-top:calc(var(--hh) + 8px)}
 body{font-family:var(--font);color:var(--ink);background:var(--bg);font-size:14px;line-height:1.4;min-height:100vh;min-height:100dvh}
-body.noscroll{overflow:hidden}
+body.locked{position:fixed;left:0;right:0;overflow:hidden}
 button,input{font:inherit;color:inherit}
-button{background:none;border:0;cursor:pointer}
+button{background:none;border:0;cursor:pointer;touch-action:manipulation}
+a,button,select,label{-webkit-tap-highlight-color:transparent}
 a{color:inherit;text-decoration:none}
 img{max-width:100%}
 :focus-visible{outline:2px solid var(--acc-s);outline-offset:2px;border-radius:4px}
@@ -158,7 +159,7 @@ mark{background:#FFF1A8;color:inherit;border-radius:2px}
 .sh-ph .noimg{width:120px;height:120px;background-size:56px}
 .sh-in{padding:24px 24px 16px;overflow:auto}
 .sh-g{font-size:12px;color:var(--steel);margin-bottom:6px;padding-right:40px}
-.sh-in h2{font-size:19px;letter-spacing:-.2px;display:flex;align-items:center;gap:6px;word-break:break-all}
+.sh-in h2{font-size:19px;letter-spacing:-.2px;display:flex;align-items:center;gap:6px;word-break:normal;overflow-wrap:anywhere}
 .icon{width:30px;height:30px;border-radius:var(--r-s);color:var(--steel);font-size:15px;flex:none}
 .icon:hover{background:var(--bg);color:var(--ink)}
 .sh-d{margin:8px 0 12px;color:var(--ink2);font-size:14px}
@@ -242,9 +243,11 @@ mark{background:#FFF1A8;color:inherit;border-radius:2px}
   .add{min-width:34px;height:34px}
   .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:35;background:var(--surf);border-top:1px solid var(--line);padding:8px 0 calc(8px + var(--sab));justify-content:space-around}
   .tabbar a,.tabbar button{position:relative;text-align:center;font-size:10.5px;color:var(--steel);min-width:64px}
-  .tabbar i{display:block;font-style:normal;font-size:21px;line-height:1.2}
+  .tabbar svg{display:block;width:26px;height:26px;margin:0 auto 3px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .tabbar .on svg{stroke-width:2.1}
+  .tabbar .on[data-tab="fav"] svg{fill:currentColor}
   .tabbar .on{color:var(--acc-s)}
-  .tabbar em{position:absolute;top:-4px;left:calc(50% + 6px);background:var(--acc-s);color:#fff;font-style:normal;font-size:10px;font-weight:700;border-radius:9px;padding:1px 6px}
+  .tabbar em{position:absolute;top:-5px;left:calc(50% + 7px);background:var(--acc-s);color:#fff;font-style:normal;font-size:10px;font-weight:700;border-radius:9px;padding:1px 6px}
   .sheet{align-items:flex-end}
   .sh-box{width:100%;max-height:94dvh;border-radius:16px 16px 0 0;grid-template-columns:1fr;grid-template-rows:auto;overflow:auto}
   .sh-ph{min-height:0;height:230px;padding:16px}
@@ -318,5 +321,34 @@ mark{background:#FFF1A8;color:inherit;border-radius:2px}
 .spv li::before{content:"";position:absolute;left:2px;top:9px;width:4px;height:4px;border-radius:50%;background:var(--acc)}
 .spv-more{margin-top:8px;height:34px;border-radius:var(--r-s);background:var(--acc-bg);color:var(--acc-s);font-weight:700;font-size:12.5px}
 @media (max-width:600px){.inf{width:34px;height:34px;font-size:15px}.cb{gap:4px}.bt b{font-size:13px}.spv{padding:8px 9px 9px}.spv ul{font-size:11.5px}}
+
+/* сенсорные экраны: поля 16px — iOS не увеличивает страницу при фокусе; без «залипающих» hover */
+@media (pointer:coarse){
+  input,select,textarea{font-size:16px!important}
+  .stp input{width:46px}
+  .stp.sm input{width:40px}
+}
+@media (hover:none){
+  .side a:hover,.hbtn:hover,.add:hover,.icon:hover,.kx:hover,.ck:hover,.ckh:hover,.menu button:hover{background:transparent}
+  .add.on:hover{background:var(--acc-s)}
+  .catc:hover,.dd:hover,.sort:hover,.inf:hover,.kp-a button:hover{border-color:var(--line)}
+  .dd.act:hover{border-color:var(--acc)}
+  .kp-a .p:hover{border-color:var(--acc-s)}
+  .inf:hover{color:var(--steel)}
+  .inf.on:hover{color:#fff;border-color:var(--ink)}
+  .kx:hover{color:var(--steel)}
+  .btn:hover{filter:none}
+}
+
+/* узкие телефоны (320–380px) */
+@media (max-width:380px){
+  .sh-buy{flex-wrap:wrap;row-gap:10px}
+  .sh-buy .pp{flex:1 1 calc(100% - 60px)}
+  .sh-buy .stp{order:3}
+  .sh-buy .btn{order:4;flex:1}
+  .catc img{width:38%;height:62%}
+  .catc b{max-width:66%;font-size:13px}
+  .kp-h h2{font-size:16px}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 @media print{.top,.side,.kp,.tabbar,.kpbar{display:none!important}}

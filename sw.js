@@ -1,7 +1,7 @@
 /* Dahua прайс IT-Trade — service worker.
    Страница и данные: сначала сеть, без сети — кэш (новый прайс подтягивается сам).
    Фото и превью: кэш, затем сеть. При изменении этого файла меняй VERSION. */
-const VERSION = 'dahua-app-v4';
+const VERSION = 'dahua-app-v6';
 const IMG_CACHE = 'dahua-img';
 const SHELL = ['./', 'index.html', 'app.css', 'app.js', 'data.js', 'images.js', 'manifest.webmanifest',
   'assets/logo-it.png', 'assets/logo-dahua.png', 'assets/icons/favicon-32.png', 'assets/icons/icon-192.png',

@@ -1,7 +1,7 @@
 'use strict';
 /* Dahua прайс IT-Trade — PWA. Данные: data.js (PRICE, DATA), images.js (IMAGES). */
 (function () {
-  const APP_VER = '4';
+  const APP_VER = '6';
   const VAT = 22;
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -74,6 +74,18 @@
   const setHH = () => document.documentElement.style.setProperty('--hh', top.offsetHeight + 'px');
   setHH(); if (window.ResizeObserver) new ResizeObserver(setHH).observe(top); else addEventListener('resize', setHH);
 
+
+  /* блокировка прокрутки под шторками (в т.ч. iOS Safari) */
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  const lk = { on: false, y: 0, reset: false };
+  function syncLock() {
+    const b = document.body;
+    const need = !sheet.hidden || b.classList.contains('dd-open') || (b.classList.contains('kp-open') && !mqDesk.matches);
+    if (need && !lk.on) { lk.on = true; lk.y = scrollY; b.style.top = -lk.y + 'px'; b.classList.add('locked'); }
+    else if (!need && lk.on) { lk.on = false; b.classList.remove('locked'); b.style.top = ''; window.scrollTo(0, lk.reset ? 0 : lk.y); lk.reset = false; }
+  }
+  new MutationObserver(syncLock).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  new MutationObserver(syncLock).observe(sheet, { attributes: true, attributeFilter: ['hidden'] });
   /* ---------- боковое меню ---------- */
   function renderSide(activeCi) {
     side.innerHTML = '<a href="#/"' + (activeCi === 'home' ? ' class="on"' : '') + '><span>Все разделы</span><em>' + ITEMS.length + '</em></a>' +
@@ -176,8 +188,8 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
       const on = P.has(r.gi[0]); return `<button type="button" class="ck${on ? ' on' : ''}${r.sub ? ' sub' : ''}" data-gi="${r.gi[0]}" role="menuitemcheckbox" aria-checked="${on}"><i></i><span>${esc(r.label)}</span><em>${r.n}</em></button>`;
     }).join('')}</div><div class="pf"><button type="button" class="lnk" data-reset>Сбросить</button><button type="button" class="ok" data-apply>Показать ${n}</button></div>`;
   }
-  function ddOpen() { if (!$('#ddPop')) return; dd.pending = new Set(dd.sel); dd.open = true; ddRender(); $('#ddPop').hidden = false; $('#ddBtn').setAttribute('aria-expanded', 'true'); $('#ddw').classList.add('open'); if (mqPhone.matches) document.body.classList.add('dd-open', 'noscroll'); }
-  function ddClose() { if (!dd.open) return; dd.open = false; const p = $('#ddPop'); if (p) p.hidden = true; const b = $('#ddBtn'); if (b) b.setAttribute('aria-expanded', 'false'); const w = $('#ddw'); if (w) w.classList.remove('open'); document.body.classList.remove('dd-open'); if (sheet.hidden && !document.body.classList.contains('kp-open')) document.body.classList.remove('noscroll'); }
+  function ddOpen() { if (!$('#ddPop')) return; dd.pending = new Set(dd.sel); dd.open = true; ddRender(); $('#ddPop').hidden = false; $('#ddBtn').setAttribute('aria-expanded', 'true'); $('#ddw').classList.add('open'); if (mqPhone.matches) document.body.classList.add('dd-open'); }
+  function ddClose() { if (!dd.open) return; dd.open = false; const p = $('#ddPop'); if (p) p.hidden = true; const b = $('#ddBtn'); if (b) b.setAttribute('aria-expanded', 'false'); const w = $('#ddw'); if (w) w.classList.remove('open'); document.body.classList.remove('dd-open'); }
   function ddApply(set) { const h = selHash(dd.ci, set); ddClose(); if (location.hash !== h) location.hash = h; }
 
   const RU = 'йцукенгшщзхъфывапролджэячсмитьбю', EN = "qwertyuiop[]asdfghjkl;'zxcvbnm,.";
@@ -235,7 +247,7 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
     else if (p[0] === 'fav') vFav();
     else vHome();
     const scrollTop = st.rendered !== h; st.rendered = h; st.base = h;
-    if (scrollTop) window.scrollTo(0, 0);
+    if (scrollTop) { if (lk.on) lk.reset = true; else window.scrollTo(0, 0); }
     setTab(p[0] === 'fav' ? 'fav' : p[0] === 's' ? 'search' : 'cat');
   }
   let sheetPushed = false, kpPushed = false;
@@ -349,10 +361,10 @@ ${specs.length ? `<div class="tags">${specs.map(x => `<span>${esc(x)}</span>`).j
 <button class="fav${FAV.has(s) ? ' on' : ''}" data-fav aria-label="Избранное">${FAV.has(s) ? '♥' : '♡'}</button>
 <div class="stp"><button data-dec aria-label="Меньше">−</button><input id="shQ" inputmode="numeric" pattern="[0-9]*" value="${q}" aria-label="Количество"><button data-inc aria-label="Больше">+</button></div>
 <button class="btn" data-tokp>${inKp ? 'Обновить' : 'В КП'}</button></div></div>`;
-    sheet.hidden = false; sheet.dataset.s = s; document.body.classList.add('noscroll');
+    sheet.hidden = false; sheet.dataset.s = s;
     setTimeout(() => { const b = $('[data-tokp]', sheet); if (b && !coarse) b.focus(); }, 30);
   }
-  function closeSheetUI() { if (!sheet.hidden) { sheet.hidden = true; sheet.innerHTML = ''; } if (!document.body.classList.contains('kp-open')) document.body.classList.remove('noscroll'); }
+  function closeSheetUI() { if (!sheet.hidden) { sheet.hidden = true; sheet.innerHTML = ''; } }
   function closeSheet() { const f = sheetPushed; sheetPushed = false; goBackOr(st.base, f); }
   sheet.addEventListener('click', e => {
     const s = sheet.dataset.s, qi = $('#shQ', sheet);
