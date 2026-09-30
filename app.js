@@ -1,7 +1,7 @@
 'use strict';
 /* Dahua прайс IT-Trade — PWA. Данные: data.js (PRICE, DATA), images.js (IMAGES). */
 (function () {
-  const APP_VER = '1.1';
+  const APP_VER = '4';
   const VAT = 22;
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -90,7 +90,7 @@
 ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku" data-open title="${esc(it.s)}">${hl ? hl(it.s) : esc(it.s)}</button>
 <div class="ds">${hl ? hl(it.d) : esc(it.d)}</div>
 <div class="bt"><div><b${it.price == null ? ' class="req"' : ''}>${money(it.price)}</b><span>${esc(fmtW(it.w))}</span></div>
-<button class="add${q ? ' on' : ''}" data-add aria-label="${q ? 'В КП: ' + q + ' шт' : 'Добавить в КП'}">${q ? q : '+'}</button></div></article>`;
+<div class="cb">${it.sp ? '<button class="inf" data-info aria-label="Характеристики" title="Характеристики">i</button>' : ''}<button class="add${q ? ' on' : ''}" data-add aria-label="${q ? 'В КП: ' + q + ' шт' : 'Добавить в КП'}">${q ? q : '+'}</button></div></div></article>`;
   }
   function refreshAdds() {
     $$('.card', view).forEach(c => {
@@ -104,10 +104,11 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
     const k = st.sort === 'asc' ? 1 : -1;
     return list.slice().sort((a, b) => (a.price == null) - (b.price == null) || k * ((a.price || 0) - (b.price || 0)));
   }
-  const sortSel = () => `<select class="sort" id="sortSel" aria-label="Сортировка">
-<option value="def"${st.sort === 'def' ? ' selected' : ''}>Как в прайсе</option>
-<option value="asc"${st.sort === 'asc' ? ' selected' : ''}>Цена ↑</option>
-<option value="desc"${st.sort === 'desc' ? ' selected' : ''}>Цена ↓</option></select>`;
+  const sortSel = () => { const sh = mqPhone.matches, p = sh ? '' : 'Сортировка: ';
+    return `<select class="sort" id="sortSel" aria-label="Сортировка">
+<option value="def"${st.sort === 'def' ? ' selected' : ''}>${p}${sh ? 'Как в прайсе' : 'как в прайсе'}</option>
+<option value="asc"${st.sort === 'asc' ? ' selected' : ''}>${p}${sh ? 'Цена ↑' : 'цена ↑'}</option>
+<option value="desc"${st.sort === 'desc' ? ' selected' : ''}>${p}${sh ? 'Цена ↓' : 'цена ↓'}</option></select>`; };
 
   /* ---------- экраны ---------- */
   function vHome() {
@@ -161,10 +162,10 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
       if (withHeads && it.g !== lastG) { lastG = it.g; body += `<div class="gh">${esc(cleanG(it.g))}</div>`; }
       body += card(it);
     });
-    const btnLab = !sel.size ? 'Серия' : sel.size === 1 ? 'Серия: ' + esc(c.tagOf[Array.from(sel)[0]]) : 'Серия: выбрано ' + sel.size;
-    const fbar = `<div class="fbar">${hasF ? `<div class="ddw" id="ddw"><button type="button" class="dd${sel.size ? ' act' : ''}" id="ddBtn" aria-haspopup="true" aria-expanded="false"><span>${btnLab}</span><b>▾</b></button><div class="pop" id="ddPop" hidden></div></div>` : ''}<span class="sp"></span>${sortSel()}</div>`;
+    const btnLab = !sel.size ? 'Серия' : sel.size === 1 ? 'Серия: ' + esc(c.tagOf[Array.from(sel)[0]]) : (mqPhone.matches ? 'Серия (' + sel.size + ')' : 'Серия: выбрано ' + sel.size);
+    const fbar = `<div class="fbar">${hasF ? `<div class="ddw" id="ddw"><button type="button" class="dd${sel.size ? ' act' : ''}" id="ddBtn" aria-haspopup="true" aria-expanded="false"><span>${btnLab}</span><b>▾</b></button><div class="pop" id="ddPop" hidden></div></div>` : ''}${sortSel()}</div>`;
     const tags = sel.size ? `<div class="ftags">${Array.from(sel).sort((a, b) => a - b).map(gi => `<button type="button" data-untag="${gi}">${esc(c.tagOf[gi])} <i>✕</i></button>`).join('')}<button type="button" class="lnk" data-clearall>Сбросить всё</button></div>` : '';
-    view.innerHTML = `<div class="ttl"><a class="back" href="#/" aria-label="Все разделы">‹</a><h1>${esc(c.name)}</h1><span class="n">${sel.size ? list.length + ' из ' + c.items.length : list.length} поз.</span></div>${fbar}${tags}<div class="grid">${body}</div>`;
+    view.innerHTML = `<div class="ttl"><a class="back" href="#/" aria-label="Все разделы">‹</a><h1>${esc(c.name)}</h1><span class="n">${sel.size ? list.length + ' из ' + c.items.length : list.length} поз.</span>${fbar}</div>${tags}<div class="grid">${body}</div>`;
     dd.open = false; dd.ci = ci; dd.sel = sel; document.body.classList.remove('dd-open');
   }
   function ddRender() {
@@ -213,13 +214,13 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
     $('#qn').textContent = res.length + ' найдено';
     if (!res.length) { view.innerHTML = `<div class="empty"><b>Ничего не нашлось по «${esc(q)}»</b>Попробуйте часть артикула, например «2249» или «HFW», или слова «купол 4 мп».</div>`; return; }
     const shown = res.slice(0, st.limit);
-    view.innerHTML = `<div class="ttl"><h1>Поиск: «${esc(q)}»</h1><span class="n">${res.length} поз.</span>${sortSel()}</div>
+    view.innerHTML = `<div class="ttl"><h1>Поиск: «${esc(q)}»</h1><span class="n">${res.length} поз.</span><div class="fbar">${sortSel()}</div></div>
 <div class="grid">${shown.map(it => card(it, true, hl)).join('')}</div>${res.length > shown.length ? `<button class="more-btn" id="moreBtn">Показать ещё ${Math.min(120, res.length - shown.length)} из ${res.length - shown.length}</button>` : ''}`;
   }
   function vFav() {
     renderSide('fav');
     const list = sortItems(Array.from(FAV).map(s => BYSKU.get(s)).filter(Boolean));
-    view.innerHTML = `<div class="ttl"><a class="back" href="#/" aria-label="Все разделы">‹</a><h1>Избранное</h1><span class="n">${list.length} поз.</span>${list.length ? sortSel() : ''}</div>` +
+    view.innerHTML = `<div class="ttl"><a class="back" href="#/" aria-label="Все разделы">‹</a><h1>Избранное</h1><span class="n">${list.length} поз.</span>${list.length ? '<div class="fbar">' + sortSel() + '</div>' : ''}</div>` +
       (list.length ? `<div class="grid">${list.map(it => card(it, true)).join('')}</div>` : '<div class="empty"><b>Пока пусто</b>Отмечайте товары сердечком в карточке, чтобы быстро к ним возвращаться.</div>');
   }
 
@@ -274,6 +275,7 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
       if (!$('#zoom').hidden) { $('#zoom').hidden = true; return; }
       if (!$('#menu').hidden) { closeMenu(); return; }
       if (dd.open) { ddClose(); return; }
+      if ($('.spv', view)) { closeInfo(); return; }
       if (!sheet.hidden) { closeSheet(); return; }
       if (document.body.classList.contains('kp-open')) closeKP();
     }
@@ -301,6 +303,9 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
     const c = e.target.closest('.card');
     if (e.target.closest('#moreBtn')) { st.limit += 120; const y = scrollY; vSearch(st.q); scrollTo(0, y); return; }
     if (!c) return;
+    if (e.target.closest('[data-infox]')) { closeInfo(); return; }
+    if (e.target.closest('[data-info]')) { toggleInfo(c); return; }
+    if (e.target.closest('.spv') && !e.target.closest('[data-open]')) return;
     if (e.target.closest('[data-add]')) {
       if (kpQty(c.dataset.s)) openProduct(c.dataset.s);
       else { setQty(c.dataset.s, 1); toast('Добавлено в КП: ' + c.dataset.s, 'Открыть', () => { location.hash = '#/kp'; }); }
@@ -308,6 +313,16 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
     }
     if (e.target.closest('[data-open]')) openProduct(c.dataset.s);
   });
+  function closeInfo() { $$('.spv', view).forEach(x => x.remove()); $$('.inf.on', view).forEach(b => { b.classList.remove('on'); b.setAttribute('aria-expanded', 'false'); }); }
+  function toggleInfo(c) {
+    const open = $('.spv', c); closeInfo(); if (open) return;
+    const it = BYSKU.get(c.dataset.s); if (!it) return;
+    const specs = String(it.sp || '').split(';').map(x => x.trim()).filter(Boolean);
+    c.insertAdjacentHTML('beforeend', `<div class="spv" role="dialog" aria-label="Характеристики ${esc(it.s)}"><div class="spv-h"><b>${esc(it.s)}</b><button type="button" data-infox aria-label="Закрыть">✕</button></div>
+<div class="spv-d">${esc(it.d)}</div><ul>${specs.map(x => `<li>${esc(x)}</li>`).join('')}</ul><button type="button" class="spv-more" data-open>Подробнее и в КП</button></div>`);
+    const b = $('.inf', c); b.classList.add('on'); b.setAttribute('aria-expanded', 'true');
+  }
+  document.addEventListener('click', e => { if ($('.spv', view) && !e.target.closest('.spv') && !e.target.closest('[data-info]')) closeInfo(); });
   view.addEventListener('change', e => {
     if (e.target.id === 'sortSel') { st.sort = e.target.value; save('dh-sort', st.sort); renderBase(st.base, true); }
   });
@@ -649,6 +664,7 @@ ${specs.length ? `<div class="tags">${specs.map(x => `<span>${esc(x)}</span>`).j
 
   /* ---------- старт ---------- */
   mqDesk.addEventListener && mqDesk.addEventListener('change', () => { if (mqDesk.matches) document.body.classList.remove('kp-open'); });
+  mqPhone.addEventListener && mqPhone.addEventListener('change', () => { if (st.rendered) renderBase(st.base, true); });
   renderKP();
   route();
 })();
