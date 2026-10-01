@@ -1,7 +1,7 @@
 'use strict';
 /* Dahua прайс IT-Trade — PWA. Данные: data.js (PRICE, DATA), images.js (IMAGES). */
 (function () {
-  const APP_VER = '12';
+  const APP_VER = '13';
   const VAT = 22;
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -162,8 +162,8 @@
   function renderSide(activeCi) {
     side.innerHTML = '<a href="#/"' + (activeCi === 'home' ? ' class="on"' : '') + '><span>Все разделы</span><em>' + ITEMS.length + '</em></a>' +
       '<a href="#/fav"' + (activeCi === 'fav' ? ' class="on"' : '') + '><span>Избранное</span><em>' + FAV.size + '</em></a>' +
-      (inst() ? '<a href="#/clients"' + (activeCi === 'clients' ? ' class="on"' : '') + '><span>Мои клиенты</span><em>›</em></a>' : '') +
-      (API ? '<a href="#/me"' + (activeCi === 'me' ? ' class="on"' : '') + '><span>' + (AUTH ? 'Кабинет монтажника' : 'Я монтажник') + '</span><em>›</em></a>' : '') + '<div class="sep"></div>' +
+      (inst() ? '<div class="sh">Кабинет</div>' + [['orders', 'Заказы'], ['clients', 'Клиенты'], ['report', 'Отчёт'], ['me', 'Профиль']].map(([k, l]) => `<a href="#/${k}"${activeCi === k ? ' class="on"' : ''}><span>${l}</span><em>›</em></a>`).join('') + '<div class="sh">Каталог</div>'
+        : (API ? '<a href="#/me"' + (activeCi === 'me' ? ' class="on"' : '') + '><span>' + (AUTH ? 'Кабинет монтажника' : 'Я монтажник') + '</span><em>›</em></a>' : '') + '<div class="sep"></div>') +
       CATS.map((c, i) => `<a href="#/c/${i}"${activeCi === i ? ' class="on"' : ''}><span>${esc(c.name)}</span><em>${c.items.length}</em></a>`).join('');
     const on = $('.on', side); if (on && on.scrollIntoView && typeof activeCi === 'number') on.scrollIntoView({ block: 'nearest' });
   }
@@ -322,11 +322,15 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
     else if (p[0] === 'fav') vFav();
     else if (p[0] === 'me') vMe();
     else if (p[0] === 'clients') vClients();
+    else if (p[0] === 'orders' || p[0] === 'cab') vOrders();
+    else if (p[0] === 'report') vReport();
+    else if (p[0] === 'kpw') vKPW();
     else if (p[0] === 'client' && p[1]) vClient(p[1]);
     else vHome();
+    document.body.classList.toggle('cab-wide', ['orders', 'cab', 'clients', 'client', 'report', 'kpw'].includes(p[0]));
     const scrollTop = st.rendered !== h; st.rendered = h; st.base = h;
     if (scrollTop) { if (lk.on) lk.reset = true; else window.scrollTo(0, 0); }
-    setTab(p[0] === 'fav' ? 'fav' : p[0] === 's' ? 'search' : (p[0] === 'clients' || p[0] === 'client' || p[0] === 'me') ? 'fav' : 'cat');
+    setTab(p[0] === 'fav' ? 'fav' : p[0] === 's' ? 'search' : ['clients', 'client', 'me', 'orders', 'cab', 'report'].includes(p[0]) ? 'fav' : p[0] === 'kpw' ? 'kp' : 'cat');
   }
   let sheetPushed = false, kpPushed = false;
   function route() {
@@ -560,7 +564,7 @@ ${specs.length ? `<div class="tags">${specs.map(x => `<span>${esc(x)}</span>`).j
     const t = kpTotals(), gd = Number(KP.gd) || 0, sb = seeBuy(), me = inst();
     const active = document.activeElement, activeId = active && active.id, activeS = active && active.closest && active.closest('.kr') ? active.closest('.kr').dataset.s : null;
     const srv = KP.srv && KP.srv.id ? KP.srv : null;
-    kpEl.innerHTML = `<div class="kp-h"><h2>${srv ? 'КП № ' + srv.num : 'Коммерческое предложение'}</h2>${t.n || KP.srv ? '<button class="lnk" data-clear>' + (KP.srv ? 'Новое' : 'Очистить') + '</button>' : ''}<button class="kp-x" data-kpclose aria-label="Закрыть">✕</button></div>
+    kpEl.innerHTML = `<div class="kp-h"><h2>${srv ? 'КП № ' + srv.num : 'Коммерческое предложение'}</h2>${t.n || KP.srv ? '<button class="lnk" data-clear>' + (KP.srv ? 'Новое' : 'Очистить') + '</button>' : ''}${t.n ? '<a class="lnk kp-wide" href="#/kpw">Развернуть</a>' : ''}<button class="kp-x" data-kpclose aria-label="Закрыть">✕</button></div>
 ${srv ? `<div class="kp-srv"><span>${esc(KP.srv.clientName || 'без клиента')}</span><select id="kpStatus" aria-label="Статус КП">${Object.keys(KST).map(k => `<option value="${k}"${srv.status === k ? ' selected' : ''}>${KST[k]}</option>`).join('')}</select></div>` : ''}
 <div class="kp-f"><label class="fld"><small>Клиент</small><input id="kpClient" value="${esc(KP.client)}" placeholder="название или имя" autocomplete="off"></label>
 <label class="fld"><small>Скидка клиенту на всё</small><input id="kpGd" type="number" inputmode="decimal" step="1" min="0" max="90" value="${gd || ''}" placeholder="0"><small>%</small></label></div>
@@ -581,6 +585,7 @@ ${me ? `<div class="kp-a kp-a2"><button data-save${t.n ? '' : ' disabled'}>${srv
     if (activeId === 'kpClient' || activeId === 'kpGd') { const el = $('#' + activeId); el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} }
     else if (activeS) { const el = $(`.kr[data-s="${CSS.escape(activeS)}"] input`, kpEl); if (el && active.tagName === 'INPUT') el.focus(); }
     updateBadges(t);
+    if (/^#\/kpw/.test(location.hash) && booted) drawKPW();
   }
   function updateBadges(t) {
     t = t || kpTotals();
@@ -953,8 +958,8 @@ ${API ? `<button data-act="me">${AUTH ? 'Кабинет монтажника' : 
     if (bb) { bb.hidden = !me; bb.classList.toggle('on', showBuy); bb.setAttribute('aria-pressed', String(showBuy)); bb.title = showBuy ? 'Скрыть закупочные цены' : 'Показать закупочные цены'; }
     const fav = $('#tabbar [data-tab="fav"]');
     if (fav) {
-      fav.href = me ? '#/clients' : '#/fav';
-      fav.innerHTML = me ? '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c1-4 4-6 7.5-6s6.5 2 7.5 6"/></svg>Клиенты'
+      fav.href = me ? '#/orders' : '#/fav';
+      fav.innerHTML = me ? '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c1-4 4-6 7.5-6s6.5 2 7.5 6"/></svg>Кабинет'
         : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg>Избранное';
     }
     if (booted) { renderKP(); if (st.rendered) renderBase(st.base, true); }
@@ -1048,45 +1053,150 @@ ${tab === 'login' ? `<p class="mp">Войдите по телефону и па�
   const CL = { list: null, kps: null, at: 0 };
   async function loadClients(force) {
     if (!force && CL.list && Date.now() - CL.at < 20000) return;
-    const [c, k] = await Promise.all([
-      db('clients?select=*&order=updated_at.desc&limit=500'),
-      db('kps?select=id,client,num,status,total_client,total_buy,total_rrp,updated_at&order=updated_at.desc&limit=500')
+    const [c, k, o] = await Promise.all([
+      db('clients?select=*&order=updated_at.desc&limit=1000'),
+      db('kps?select=id,client,num,status,total_client,total_buy,total_rrp,created_at,updated_at,items:data->items&order=num.desc&limit=2000'),
+      db('orders?select=id,kp,status,created_at&order=created_at.desc&limit=1000')
     ]);
-    CL.list = c; CL.kps = k; CL.at = Date.now();
+    CL.list = c; CL.kps = k; CL.orders = o; CL.at = Date.now();
+    CL.cById = {}; c.forEach(x => { CL.cById[x.id] = x; });
+    CL.oByKp = {}; o.forEach(x => { if (x.kp && !CL.oByKp[x.kp]) CL.oByKp[x.kp] = x; });
   }
   const kpRow = k => `<div class="kpl" data-kpopen="${k.id}"><span class="stt s-${k.status}">${KST[k.status] || k.status}</span><span class="kn">№ ${k.num} · ${fmtDate(k.updated_at)}</span><b>${money(k.total_client)}</b>${seeBuy() ? `<span class="pf">+${money((k.total_client || 0) - (k.total_buy || 0))}</span>` : ''}</div>`;
-  async function vClients() {
-    renderSide('clients');
+  const OST = { new: ['новый', 'o-new'], work: ['в работе', 'o-work'], done: ['выполнен', 'o-done'], cancel: ['отменён', 'o-cancel'] };
+  const cabTabs = on => `<div class="cab-t">${[['orders', 'Заказы'], ['clients', 'Клиенты'], ['report', 'Отчёт']].map(([k, l]) => `<a href="#/${k}"${on === k ? ' class="on"' : ''}>${l}</a>`).join('')}<span class="cab-who">${esc(inst() ? inst().name : '')} · закуп −${instDisc()} %</span></div>`;
+  async function cabLoad(name, draw) {
+    renderSide(name);
     if (!inst()) { location.replace('#/me'); return; }
-    const h = st.base;
-    view.innerHTML = `<div class="ttl"><a class="back" href="#/" aria-label="Назад">‹</a><h1>Мои клиенты</h1></div>` + loading();
-    try { await loadClients(true); } catch (err) { view.innerHTML = `<div class="ttl"><h1>Мои клиенты</h1></div><div class="empty"><b>${esc(err.message)}</b>Проверьте интернет и попробуйте снова.</div>`; return; }
-    if (location.hash !== h && location.hash !== '#/clients') return;
-    drawClients();
+    const h = location.hash;
+    if (!CL.list) view.innerHTML = cabTabs(name) + loading();
+    else draw();
+    try { await loadClients(true); } catch (err) { view.innerHTML = cabTabs(name) + `<div class="empty"><b>${esc(err.message)}</b>Проверьте интернет и попробуйте снова.</div>`; return; }
+    if (location.hash !== h) return;
+    draw();
   }
+  const profit = k => (k.total_client || 0) - (k.total_buy || 0);
+  function vOrders() { cabLoad('orders', drawOrders); }
+  function drawOrders() {
+    const f = st.of || 'all', qv = norm(st.oq || ''), sb = seeBuy();
+    const cnt = k => CL.kps.filter(x => k === 'all' || x.status === k).length;
+    let list = CL.kps.filter(x => f === 'all' || x.status === f);
+    if (qv) list = list.filter(x => norm(['№' + x.num, x.num, (CL.cById[x.client] || {}).name].join(' ')).includes(qv));
+    view.innerHTML = cabTabs('orders') + `<div class="ttl"><h1>Заказы</h1><span class="n">${CL.kps.length}</span><div class="fbar"><input class="cl-q" id="oQ" placeholder="Поиск: клиент, №" value="${esc(st.oq || '')}"><button type="button" class="btn sm" data-neworder>+ Новый заказ</button></div></div>
+<div class="chips2">${[['all', 'Все']].concat(Object.keys(KST).map(k => [k, KST[k]])).map(([k, l]) => `<button type="button" data-of="${k}"${f === k ? ' class="on"' : ''}>${l[0].toUpperCase() + l.slice(1)} <em>${cnt(k)}</em></button>`).join('')}</div>
+${list.length && mqPhone.matches ? `<div class="mc">${list.map(k => { const c = CL.cById[k.client], o = CL.oByKp[k.id]; return `<div class="mci" data-kpopen="${k.id}"><div class="l"><b>${esc(c ? c.name : 'без клиента')}</b><small>№ ${k.num} · ${fmtDate(k.created_at)} · ${Array.isArray(k.items) ? k.items.length : 0} поз.</small><div class="ps"><span class="stt s-${k.status}">${KST[k.status] || k.status}</span>${o ? `<span class="stt ${OST[o.status][1]}">IT-Trade: ${OST[o.status][0]}</span>` : ''}</div></div><div class="rr"><b>${money(k.total_client)}</b>${sb ? `<span class="g">+${money(profit(k))}</span>` : ''}</div></div>`; }).join('')}</div>`
+      : list.length ? `<div class="tw"><table class="ct"><thead><tr><th>№ / дата</th><th>Клиент</th><th class="r">Позиций</th><th class="r">Клиенту</th>${sb ? '<th class="r">Закуп</th><th class="r">Прибыль</th>' : ''}<th>Статус</th><th>IT-Trade</th></tr></thead><tbody>
+${list.map(k => { const c = CL.cById[k.client], o = CL.oByKp[k.id]; return `<tr data-kpopen="${k.id}"><td><b>№ ${k.num}</b><small>${fmtDate(k.created_at)}</small></td><td><b>${esc(c ? c.name : 'без клиента')}</b></td><td class="r">${Array.isArray(k.items) ? k.items.length : '—'}</td><td class="r"><b>${money(k.total_client)}</b></td>${sb ? `<td class="r mut">${money(k.total_buy)}</td><td class="r g">+${money(profit(k))}</td>` : ''}<td><span class="stt s-${k.status}">${KST[k.status] || k.status}</span></td><td>${o ? `<span class="stt ${OST[o.status][1]}">${OST[o.status][0]}</span>` : '<span class="mut">—</span>'}</td></tr>`; }).join('')}</tbody></table></div>`
+      : `<div class="empty"><b>${CL.kps.length ? 'Ничего не найдено' : 'Заказов пока нет'}</b>${CL.kps.length ? '' : 'Соберите КП из каталога и нажмите «В мои клиенты» — заказ появится здесь.'}</div>`}`;
+  }
+  function vClients() { cabLoad('clients', drawClients); }
   function drawClients() {
-    const f = st.clf || 'all', qv = norm(st.clq || '');
+    const qv = norm(st.clq || ''), sb = seeBuy();
     const byC = {}; CL.kps.forEach(k => { (byC[k.client || ''] = byC[k.client || ''] || []).push(k); });
-    const grp = { all: null, work: ['draft', 'sent'], agreed: ['agreed', 'ordered'], done: ['done'] };
-    const cnt = key => CL.list.filter(c => !grp[key] || (byC[c.id] || []).some(k => grp[key].includes(k.status))).length;
-    let list = CL.list.filter(c => !grp[f] || (byC[c.id] || []).some(k => grp[f].includes(k.status)));
+    let list = CL.list.slice();
     if (qv) list = list.filter(c => norm([c.name, c.phone, c.address, c.note].join(' ')).includes(qv));
-    const noCl = byC[''] || [];
-    view.innerHTML = `<div class="ttl"><a class="back" href="#/" aria-label="Назад">‹</a><h1>Мои клиенты</h1><span class="n">${CL.list.length}</span><div class="fbar"><button type="button" class="btn sm" data-newclient>+ Клиент</button></div></div>
-<div class="cl-bar"><div class="chips2">${[['all', 'Все'], ['work', 'В работе'], ['agreed', 'Согласовано'], ['done', 'Готово']].map(([k, l]) => `<button type="button" data-clf="${k}"${f === k ? ' class="on"' : ''}>${l} <em>${cnt(k)}</em></button>`).join('')}</div>
-<input class="cl-q" id="clQ" placeholder="Поиск по клиентам" value="${esc(st.clq || '')}"></div>
-<div class="cl-list">${list.map(c => { const ks = byC[c.id] || []; return `<div class="cli" data-cl="${c.id}"><div class="n"><b>${esc(c.name)}</b><em>${ks.length} КП</em></div>${c.phone || c.address ? `<div class="a">${esc([c.phone, c.address].filter(Boolean).join(', '))}</div>` : ''}${ks.slice(0, 3).map(kpRow).join('')}</div>`; }).join('') || '<div class="empty"><b>Пока нет клиентов</b>Добавьте клиента или сохраните КП кнопкой «В мои клиенты».</div>'}
-${noCl.length && f === 'all' && !qv ? `<div class="cli"><div class="n"><b>Без клиента</b><em>${noCl.length} КП</em></div>${noCl.slice(0, 5).map(kpRow).join('')}</div>` : ''}</div>`;
+    const agg = c => { const ks = (byC[c.id] || []).filter(k => k.status !== 'cancel'); return { n: ks.length, sum: ks.reduce((a, k) => a + (k.total_client || 0), 0), pr: ks.filter(k => k.status === 'done').reduce((a, k) => a + profit(k), 0), last: ks.length ? ks.map(k => k.updated_at).sort().pop() : c.updated_at }; };
+    view.innerHTML = cabTabs('clients') + `<div class="ttl"><h1>Клиенты</h1><span class="n">${CL.list.length}</span><div class="fbar"><input class="cl-q" id="clQ" placeholder="Поиск: имя, телефон, адрес" value="${esc(st.clq || '')}"><button type="button" class="btn sm" data-newclient>+ Клиент</button></div></div>
+${list.length && mqPhone.matches ? `<div class="mc">${list.map(c => { const g = agg(c); return `<div class="mci" data-cl="${c.id}"><div class="l"><b>${esc(c.name)}</b><small>${esc([c.phone, c.address].filter(Boolean).join(' · ') || '—')}</small><small>Заказов: ${g.n} · последний ${fmtDate(g.last)}</small></div><div class="rr"><b>${money(g.sum)}</b>${sb && g.pr ? `<span class="g">+${money(g.pr)}</span>` : ''}</div></div>`; }).join('')}</div>`
+      : list.length ? `<div class="tw"><table class="ct"><thead><tr><th>Клиент</th><th>Адрес объекта</th><th class="r">Заказов</th><th class="r">Сумма</th>${sb ? '<th class="r">Заработано</th>' : ''}<th>Последний</th></tr></thead><tbody>
+${list.map(c => { const g = agg(c); return `<tr data-cl="${c.id}"><td><b>${esc(c.name)}</b><small>${esc(c.phone || '')}</small></td><td class="mut">${esc(c.address || '—')}</td><td class="r">${g.n}</td><td class="r"><b>${money(g.sum)}</b></td>${sb ? `<td class="r g">${g.pr ? '+' + money(g.pr) : '—'}</td>` : ''}<td>${fmtDate(g.last)}</td></tr>`; }).join('')}</tbody></table></div>`
+      : `<div class="empty"><b>${CL.list.length ? 'Ничего не найдено' : 'Пока нет клиентов'}</b>${CL.list.length ? '' : 'Добавьте клиента кнопкой «+ Клиент» или сохраните КП «В мои клиенты».'}</div>`}`;
   }
+  function vReport() { cabLoad('report', drawReport); }
+  function drawReport() {
+    const per = st.rp || 'q', now = new Date();
+    const start = per === 'm' ? new Date(now.getFullYear(), now.getMonth(), 1) : per === 'q' ? new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1) : new Date(now.getFullYear(), 0, 1);
+    const D = x => new Date(String(x).replace(' ', 'T'));
+    const inP = x => D(x) >= start;
+    const done = CL.kps.filter(k => k.status === 'done' && inP(k.updated_at));
+    const earned = done.reduce((a, k) => a + profit(k), 0), turn = done.reduce((a, k) => a + (k.total_client || 0), 0), buy = done.reduce((a, k) => a + (k.total_buy || 0), 0);
+    const work = CL.kps.filter(k => k.status === 'agreed' || k.status === 'ordered');
+    const workP = work.reduce((a, k) => a + profit(k), 0);
+    const created = CL.kps.filter(k => inP(k.created_at));
+    const fn = [['Создано КП', created.length], ['Отправлено клиенту', created.filter(k => ['sent', 'agreed', 'ordered', 'done'].includes(k.status)).length], ['Согласовано', created.filter(k => ['agreed', 'ordered', 'done'].includes(k.status)).length], ['Смонтировано', created.filter(k => k.status === 'done').length]];
+    const months = []; for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push({ d, n: 0 }); }
+    CL.kps.filter(k => k.status === 'done').forEach(k => { const d = D(k.updated_at); const m = months.find(x => x.d.getFullYear() === d.getFullYear() && x.d.getMonth() === d.getMonth()); if (m) m.n += profit(k); });
+    const mx = Math.max(1, ...months.map(m => m.n));
+    const MN = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    const byC = {}; done.forEach(k => { byC[k.client || ''] = (byC[k.client || ''] || 0) + profit(k); });
+    const top = Object.entries(byC).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const fmtK = n => n >= 1000 ? Math.round(n / 1000) + ' т' : Math.round(n) + '';
+    const perName = per === 'm' ? 'месяц' : per === 'q' ? 'квартал' : 'год';
+    view.innerHTML = cabTabs('report') + `<div class="ttl"><h1>Отчёт</h1><div class="fbar"><div class="seg2">${[['m', 'Месяц'], ['q', 'Квартал'], ['y', 'Год']].map(([k, l]) => `<button type="button" data-rp="${k}"${per === k ? ' class="on"' : ''}>${l}</button>`).join('')}</div></div></div>
+<div class="rp-cards"><div class="rc g"><span>Заработано за ${perName}</span><b>${money(earned)}</b><small>прибыль по смонтированным: ${done.length}</small></div><div class="rc"><span>Оборот с клиентами</span><b>${money(turn)}</b><small>смонтировано за ${perName}</small></div><div class="rc"><span>Закуплено у IT-Trade</span><b>${money(buy)}</b><small>по вашей цене −${instDisc()} %</small></div><div class="rc b"><span>В работе</span><b>+${money(workP)}</b><small>ожидаемая прибыль: согласовано и заказано (${work.length})</small></div></div>
+<div class="rp-two"><div class="rbox"><h3>Прибыль по месяцам</h3><div class="chart">${months.map(m => `<div class="bc"><span class="bv">${m.n ? fmtK(m.n) : ''}</span><div class="bar" style="height:${Math.max(m.n ? 4 : 0, m.n / mx * 150)}px"></div><span class="bl">${MN[m.d.getMonth()]}</span></div>`).join('')}</div></div>
+<div class="rbox"><h3>Воронка за ${perName}</h3><div class="fn">${fn.map(([l, n]) => `<div><span>${l}</span><i style="width:${fn[0][1] ? Math.max(3, n / fn[0][1] * 100) : 0}%"></i><b>${n}</b></div>`).join('')}</div>
+<p class="mut sm">${fn[0][1] ? `Конверсия КП → монтаж: <b>${Math.round(fn[3][1] / fn[0][1] * 100)} %</b>. ` : ''}${turn ? `Средняя маржа: <b>${Math.round(earned / turn * 100)} %</b>. Средний чек: <b>${money(turn / done.length)}</b>.` : ''}</p>
+<h3 class="mt">Лучшие клиенты</h3>${top.length ? `<div class="rtop">${top.map(([c, v]) => `<div><span>${esc((CL.cById[c] || {}).name || 'без клиента')}</span><b>+${money(v)}</b></div>`).join('')}</div>` : '<p class="mut sm">Появятся после первых смонтированных заказов.</p>'}</div></div>
+<p class="mut sm">«Заработано» — сумма клиенту минус закуп по заказам в статусе «смонтировано». Меняйте статус в заказе, когда объект сдан.</p>`;
+  }
+
+  /* ---------- широкое КП (компьютер и планшет) ---------- */
+  function vKPW() {
+    renderSide(inst() ? 'orders' : null);
+    if (mqPhone.matches) { location.replace('#/kp'); return; }
+    drawKPW();
+  }
+  function drawKPW() {
+    const t = kpTotals(), gd = Number(KP.gd) || 0, sb = seeBuy(), me = inst(), srv = KP.srv && KP.srv.id ? KP.srv : null;
+    const ae = document.activeElement, aeId = ae && ae.id;
+    view.innerHTML = (me ? cabTabs('orders') : '') + `<div class="ttl"><a class="back" href="${me ? '#/orders' : '#/'}" aria-label="Назад">‹</a><h1>${srv ? 'КП № ' + srv.num : 'Новое КП'}</h1>
+<div class="fbar"><label class="fld w-cl"><small>Клиент</small><input id="wClient" value="${esc(KP.client)}" placeholder="название или имя"></label>
+${srv ? `<select id="wStatus" class="sort" aria-label="Статус">${Object.keys(KST).map(k => `<option value="${k}"${srv.status === k ? ' selected' : ''}>${KST[k]}</option>`).join('')}</select>` : ''}
+${me ? `<button type="button" class="hbtn buyb${showBuy ? ' on' : ''}" data-wbuy>👁 закуп</button>` : ''}</div></div>
+${t.n ? `<div class="tw"><table class="ct kpw"><thead><tr><th></th><th>Товар</th><th class="c">Кол-во</th><th class="r">РРЦ</th><th class="c">Скидка</th><th class="r">Цена клиенту</th><th class="r">Сумма</th>${sb ? '<th class="r bu">Закуп</th>' : ''}<th></th></tr></thead><tbody>
+${KP.items.map(r => { const [s, qn] = r, it = BYSKU.get(s), d = lineDisc(r), u = discPrice(it, d), bp = buyPrice(it); return `<tr class="wr" data-s="${esc(s)}"><td class="ph">${imgTag(s, '')}</td><td><button class="sku" data-open>${esc(s)}</button><small>${esc(it.d)}</small></td>
+<td class="c"><div class="stp sm"><button data-dec aria-label="Меньше">−</button><input inputmode="numeric" value="${qn}" aria-label="Количество"><button data-inc aria-label="Больше">+</button></div></td>
+<td class="r mut">${money(it.price)}</td><td class="c"><button class="kdisc${r[2] != null ? ' own' : d ? ' on' : ''}" data-ldisc>${d ? '−' + d + ' %' : '—'}</button></td>
+<td class="r"><b>${u == null ? '—' : money(u)}</b></td><td class="r"><b>${u == null ? '—' : money(u * qn)}</b></td>${sb ? `<td class="r bu">${bp == null ? '—' : money(bp * qn)}</td>` : ''}<td><button class="kx" data-del aria-label="Удалить">✕</button></td></tr>`; }).join('')}</tbody></table></div>`
+      : '<div class="empty"><b>КП пустое</b>Добавьте товары из каталога кнопкой «+».</div>'}
+<div class="w-tools"><label class="fld"><small>Скидка клиенту на всё</small><input id="wGd" type="number" inputmode="decimal" min="0" max="90" value="${gd || ''}" placeholder="0"><small>%</small></label><a class="btn2" href="#/">+ Товары из каталога</a>${t.n ? '<button type="button" class="lnk" data-wclear>Очистить</button>' : ''}</div>
+<div class="w-tot"><div class="tb"><span>По РРЦ</span><b>${money(t.rrp)}</b></div><div class="tb cl"><span>Клиенту${t.anyDisc ? ' со скидкой' : ''}</span><b>${money(t.sum)}</b><small>${t.anyDisc ? 'скидка ' + money(t.disc) + ', ' : ''}в т.ч. НДС ${VAT} % ${money(t.vat)}</small></div>
+${sb ? `<div class="tb"><span>Ваш закуп (−${instDisc()} %)</span><b>${money(t.buy)}</b></div><div class="tb pr"><span>Ваша прибыль</span><b>${money(t.profit)}</b><small>${t.sum ? Math.round(t.profit / t.sum * 100) + ' % от суммы клиента' : ''}</small></div>` : ''}</div>
+<div class="w-act"><button data-wpdf${t.n ? '' : ' disabled'}>PDF клиенту</button><button data-wxlsx${t.n ? '' : ' disabled'}>Excel</button><button class="p" data-wsend${t.n ? '' : ' disabled'}>Отправить</button>${me ? `<span class="sp"></span><button data-wsave${t.n ? '' : ' disabled'}>${srv ? 'Сохранить' : 'Сохранить в клиента'}</button><button class="g" data-worder${t.n ? '' : ' disabled'}>Заказать у IT-Trade</button>` : ''}</div>`;
+    if (aeId === 'wClient' || aeId === 'wGd') { const el = $('#' + aeId); if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} } }
+  }
+  view.addEventListener('click', e => {
+    const t = e.target;
+    const of = t.closest('[data-of]'); if (of) { st.of = of.dataset.of; drawOrders(); return; }
+    const rp = t.closest('[data-rp]'); if (rp) { st.rp = rp.dataset.rp; drawReport(); return; }
+    if (t.closest('[data-neworder]')) {
+      if (KP.items.length && !(KP.srv && KP.srv.id) && !confirm('Текущее КП не сохранено и будет очищено. Начать новый заказ?')) return;
+      KP = normKP({}); saveKP(); renderKP(); refreshAdds(); location.hash = '#/'; toast('Новый заказ: добавляйте товары кнопкой «+»'); return;
+    }
+    if (!$('.kpw', view) && !$('.w-act', view)) return;
+    if (t.closest('[data-wbuy]')) return toggleBuy();
+    if (t.closest('[data-wclear]')) { if (confirm('Очистить КП?')) { KP = normKP({}); saveKP(); renderKP(); refreshAdds(); } return; }
+    if (t.closest('[data-wpdf]')) return run(t.closest('button'), () => exportPDF(false));
+    if (t.closest('[data-wxlsx]')) return run(t.closest('button'), exportXLSX);
+    if (t.closest('[data-wsend]')) return run(t.closest('button'), () => exportPDF(true));
+    if (t.closest('[data-wsave]')) return run(t.closest('button'), saveKPServer);
+    if (t.closest('[data-worder]')) return orderDialog();
+    const r = t.closest('tr.wr'), s = r && r.dataset.s; if (!s) return;
+    if (t.closest('[data-ldisc]')) return lineDiscPrompt(s);
+    if (t.closest('[data-del]')) return setQty(s, 0);
+    if (t.closest('[data-dec]')) return setQty(s, kpQty(s) - 1);
+    if (t.closest('[data-inc]')) return setQty(s, kpQty(s) + 1);
+    if (t.closest('[data-open]')) { sheetPushed = true; location.hash = '#/p/' + encodeURIComponent(s); }
+  });
+  view.addEventListener('input', e => {
+    if (e.target.id === 'wClient') { KP.client = e.target.value; saveKP(); const k = $('#kpClient'); if (k) k.value = KP.client; }
+    if (e.target.id === 'oQ') { st.oq = e.target.value; clearTimeout(st.oqt); st.oqt = setTimeout(() => { const p = e.target.selectionStart; drawOrders(); const i = $('#oQ'); if (i) { i.focus(); try { i.setSelectionRange(p, p); } catch (x) {} } }, 200); }
+  });
+  view.addEventListener('change', e => {
+    if (e.target.id === 'wGd') { const v = parseFloat(String(e.target.value).replace(',', '.')) || 0; KP.gd = Math.max(0, Math.min(90, Math.round(v * 10) / 10)); saveKP(); renderKP(); return; }
+    if (e.target.id === 'wStatus') { const v = e.target.value; db('kps?id=eq.' + U(KP.srv.id), { method: 'PATCH', body: { status: v } }).then(() => { KP.srv.status = v; saveKP(); CL.at = 0; renderKP(); toast('Статус: ' + KST[v]); }).catch(err => toast(err.message)); return; }
+    const r = e.target.closest('tr.wr'); if (r && e.target.tagName === 'INPUT') setQty(r.dataset.s, e.target.value);
+  });
   async function vClient(id) {
     renderSide('clients');
     if (!inst()) { location.replace('#/me'); return; }
-    view.innerHTML = `<div class="ttl"><a class="back" href="#/clients" aria-label="Назад">‹</a><h1>Клиент</h1></div>` + loading();
+    view.innerHTML = cabTabs('clients') + `<div class="ttl"><a class="back" href="#/clients" aria-label="Назад">‹</a><h1>Клиент</h1></div>` + loading();
     let c, ks;
     try { [c, ks] = await Promise.all([db('clients?select=*&id=eq.' + U(id)), db('kps?select=id,client,num,status,total_client,total_buy,total_rrp,updated_at&order=updated_at.desc&limit=200&client=eq.' + U(id))]); c = c[0]; if (!c) throw new Error('Клиент не найден'); }
-    catch (err) { view.innerHTML = `<div class="ttl"><a class="back" href="#/clients">‹</a><h1>Клиент</h1></div><div class="empty"><b>${esc(err.message)}</b></div>`; return; }
+    catch (err) { view.innerHTML = cabTabs('clients') + `<div class="ttl"><a class="back" href="#/clients">‹</a><h1>Клиент</h1></div><div class="empty"><b>${esc(err.message)}</b></div>`; return; }
     const sum = ks.filter(k => k.status !== 'cancel').reduce((a, k) => a + (k.total_client || 0), 0), pr = ks.filter(k => ['agreed', 'ordered', 'done'].includes(k.status)).reduce((a, k) => a + (k.total_client || 0) - (k.total_buy || 0), 0);
-    view.innerHTML = `<div class="ttl"><a class="back" href="#/clients" aria-label="Назад">‹</a><h1>${esc(c.name)}</h1><div class="fbar"><button type="button" class="btn sm" data-newkp="${c.id}">+ Новое КП</button></div></div>
+    view.innerHTML = cabTabs('clients') + `<div class="ttl"><a class="back" href="#/clients" aria-label="Назад">‹</a><h1>${esc(c.name)}</h1><div class="fbar"><button type="button" class="btn sm" data-newkp="${c.id}">+ Новое КП</button></div></div>
 <div class="cl-grid"><div class="cl-card"><h3>Данные клиента</h3>
 <label class="fl"><span>Название / имя</span><input id="ceName" value="${esc(c.name)}"></label>
 <label class="fl"><span>Телефон</span><input id="cePhone" type="tel" value="${esc(c.phone || '')}"></label>
@@ -1107,7 +1217,7 @@ ${ks.map(k => `<div class="kpc"><div class="kpl" data-kpopen="${k.id}"><span cla
       nk.srv = asCopy ? (k.client ? { client: k.client, clientName: cname } : null) : { id: k.id, num: k.num, status: k.status, client: k.client || '', clientName: cname };
       if (KP.items.length && !(KP.srv && KP.srv.id === k.id) && !confirm('Заменить текущее КП на ' + (asCopy ? 'копию ' : '') + 'КП № ' + k.num + '?')) return;
       KP = nk; saveKP(); renderKP(); refreshAdds();
-      kpPushed = true; location.hash = '#/kp';
+      if (mqPhone.matches) { kpPushed = true; location.hash = '#/kp'; } else location.hash = '#/kpw';
       toast(asCopy ? 'Копия КП № ' + k.num + ' — сохраните как новое' : 'Открыто КП № ' + k.num);
     } catch (err) { toast(err.message); }
   }
@@ -1125,7 +1235,6 @@ ${ks.map(k => `<div class="kpc"><div class="kpl" data-kpopen="${k.id}"><span cla
   }
   view.addEventListener('click', async e => {
     const t = e.target;
-    const cf = t.closest('[data-clf]'); if (cf) { st.clf = cf.dataset.clf; drawClients(); return; }
     if (t.closest('[data-newclient]')) {
       clientForm('Новый клиент', null, async body => { const c = (await db('clients', { method: 'POST', body }))[0]; closeModal(); CL.at = 0; location.hash = '#/client/' + c.id; });
       return;
