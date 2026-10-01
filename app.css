@@ -454,7 +454,7 @@ mark{background:#FFF1A8;color:inherit;border-radius:2px}
 .md-q button{flex:1;min-width:56px;height:38px;border-radius:var(--r-s);background:var(--bg);font-weight:700;color:var(--ink2)}
 .md-q button.on{background:var(--acc-bg);color:var(--acc-s);outline:1.5px solid var(--acc)}
 .md-a{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px}
-.btn.g{background:var(--buy)}
+.btn.g{background:var(--buy);color:#fff}
 .btn.sm{height:36px;padding:0 14px;font-size:13px;display:inline-flex;align-items:center}
 .btn.wide{width:100%;display:flex;align-items:center;justify-content:center;height:48px;margin-top:6px}
 .btn2{height:44px;border-radius:var(--r-s);border:1.5px solid var(--line);font-weight:700;color:var(--ink2)}
