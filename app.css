@@ -517,6 +517,11 @@ mark{background:#FFF1A8;color:inherit;border-radius:2px}
 /* ===== кабинет монтажника v13 ===== */
 @media (min-width:1201px){body.cab-wide .main{grid-template-columns:var(--side) minmax(0,1fr)}body.cab-wide .kp{display:none}}
 @media (max-width:1200px){body.cab-wide .kpbar{display:none!important}body.cab-wide .view{padding-bottom:40px}}
+@media (max-width:600px){body.cab-wide .view{padding-bottom:calc(110px + var(--sab))}body.cab-wide.add-mode .view{padding-bottom:calc(180px + var(--sab))}
+  .view .w-tot{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}.view .w-tot .tb{min-width:0;padding:10px 12px}.view .w-tot .tb b{font-size:17px}.view .w-tot .tb small{font-size:11px;display:block;line-height:1.3}
+  .ord-pg .w-tools{flex-direction:column;align-items:stretch;gap:8px;margin:10px 0}.ord-pg .w-tools .btn2{justify-content:center}
+  .ord-pg .w-act{gap:6px}.ord-pg .w-act button{height:44px;font-size:13px}
+  .ord-pg .ttl{gap:6px 8px}.ord-pg .ttl h1{font-size:19px}}
 .mc{display:grid;gap:8px}
 .mci{display:flex;gap:10px;background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:11px 12px;cursor:pointer}
 .mci .l{flex:1;min-width:0}.mci .l b{display:block;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

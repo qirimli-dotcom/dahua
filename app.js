@@ -1,7 +1,7 @@
 'use strict';
 /* Dahua прайс IT-Trade — PWA. Данные: data.js (PRICE, DATA), images.js (IMAGES). */
 (function () {
-  const APP_VER = '14';
+  const APP_VER = '16';
   const VAT = 22;
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -877,7 +877,7 @@ ${me ? `<div class="kp-a"><button data-pdf${t.n ? '' : ' disabled'}>PDF</button>
   function openMenu() {
     const m = $('#menu'), photos = load('dh-photos', 0);
     m.innerHTML = `${standalone ? '' : `<button data-act="install">Установить приложение<small>${isIOS ? 'Safari: «Поделиться» → «На экран Домой»' : 'Значок на рабочий стол, работает без интернета'}</small></button>`}
-${API ? `<button data-act="me">${AUTH ? 'Кабинет монтажника' : 'Я монтажник'}<small>${inst() ? 'Закуп −' + instDisc() + ' %, мои клиенты' : AUTH ? 'Заявка на проверке' : 'Закупочные цены, скидки клиентам, мои клиенты'}</small></button>` : ''}${inst() ? '<button data-act="fav">Избранное<small>' + FAV.size + ' товаров</small></button>' : ''}<button data-act="photos">Скачать фото для офлайна<small id="phInfo">${photos ? 'Уже скачаны, можно обновить' : 'Около 10 МБ, превью всех товаров'}</small><div class="prog" id="phProg" hidden><i></i></div></button>
+${API ? `<button data-act="me">${inst() ? 'Кабинет' : AUTH ? 'Кабинет монтажника' : 'Я монтажник'}<small>${inst() ? 'Закуп −' + instDisc() + ' %, заказы, клиенты, отчёт' : AUTH ? 'Заявка на проверке' : 'Закупочные цены, скидки клиентам, кабинет'}</small></button>` : ''}${inst() ? '<button data-act="fav">Избранное<small>' + FAV.size + ' товаров</small></button>' : ''}<button data-act="photos">Скачать фото для офлайна<small id="phInfo">${photos ? 'Уже скачаны, можно обновить' : 'Около 10 МБ, превью всех товаров'}</small><div class="prog" id="phProg" hidden><i></i></div></button>
 <button data-act="all">Весь прайс в Excel<small>${ITEMS.length.toLocaleString('ru-RU')} позиций</small></button>
 <button data-act="reload">Обновить данные<small>Подтянуть свежий прайс с сайта</small></button>
 <div class="mi">Прайс${PR.date ? ' от ' + esc(PR.date) : ''}, версия ${APP_VER}. Цены РРЦ, НДС ${VAT} % включён. <button type="button" class="lnk" data-act="diag">Диагностика</button></div>`;
@@ -895,7 +895,7 @@ ${API ? `<button data-act="me">${AUTH ? 'Кабинет монтажника' : 
     if (a === 'all') { closeMenu(); exportAll().catch(err => toast('Не получилось: ' + err.message)); }
     if (a === 'reload') { closeMenu(); hardReload(); }
     if (a === 'diag') { closeMenu(); showDiag(); }
-    if (a === 'me') { closeMenu(); location.hash = '#/me'; }
+    if (a === 'me') { closeMenu(); location.hash = inst() ? '#/orders' : '#/me'; }
     if (a === 'fav') { closeMenu(); location.hash = '#/fav'; }
   });
   let photoBusy = false;
@@ -1003,7 +1003,7 @@ ${tab === 'login' ? `<p class="mp">Войдите по телефону и па�
 <label class="fl"><span>Телефон</span><input id="mePhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 978 123-45-67"></label>
 <label class="fl"><span>Пароль</span><input id="mePass" type="password" autocomplete="current-password"></label>
 <button type="button" class="btn wide" data-melogin>Войти</button><p class="mp sm">Забыли пароль? Позвоните менеджеру IT-Trade — он поставит новый.</p>`
-: `<p class="mp">После проверки менеджер IT-Trade откроет вам закупочные цены, скидки для клиентов и кабинет «Мои клиенты».</p>
+: `<p class="mp">После проверки менеджер IT-Trade откроет вам закупочные цены, скидки для клиентов и кабинет с заказами, клиентами и отчётом.</p>
 <label class="fl"><span>ФИО</span><input id="rgName" autocomplete="name" placeholder="Петров Сергей Викторович"></label>
 <label class="fl"><span>Компания / ИП</span><input id="rgCompany" autocomplete="organization" placeholder="ИП Петров С.В."></label>
 <label class="fl"><span>Телефон</span><input id="rgPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 978 123-45-67"></label>
@@ -1014,10 +1014,10 @@ ${tab === 'login' ? `<p class="mp">Войдите по телефону и па�
     }
     const stt = r.status;
     const box = stt === 'active' ? `<div class="me-ok"><div class="me-ic ok">✓</div><h2>${esc(r.name)}</h2><p class="mp">${esc(r.company || '')}${r.city ? ', ' + esc(r.city) : ''}<br>${esc(fmtPhone(r.phone))}</p><div class="pill-buy">закуп: РРЦ −${instDisc()} %</div>
-<div class="me-a"><a class="btn wide" href="#/clients">Мои клиенты</a><button type="button" class="btn2 wide" data-mebuy>${showBuy ? 'Скрыть закупочные цены' : 'Показать закупочные цены'}</button><button type="button" class="lnk" data-melogout>Выйти</button></div></div>`
+<div class="me-a"><a class="btn wide" href="#/orders">Кабинет</a><button type="button" class="btn2 wide" data-mebuy>${showBuy ? 'Скрыть закупочные цены' : 'Показать закупочные цены'}</button><button type="button" class="lnk" data-melogout>Выйти</button></div></div>`
       : stt === 'pending' ? `<div class="me-ok"><div class="me-ic wait">⏳</div><h2>Заявка на проверке</h2><p class="mp">${esc(r.name)}, ${esc(fmtPhone(r.phone))}<br>Обычно в течение рабочего дня. Как только одобрят — закупочные цены появятся сами.</p><p class="mp note-box">Пока можно пользоваться каталогом и делать КП по РРЦ.</p><div class="me-a"><button type="button" class="btn wide" data-mecheck>Проверить статус</button><button type="button" class="lnk" data-melogout>Выйти</button></div></div>`
       : `<div class="me-ok"><div class="me-ic no">!</div><h2>${stt === 'rejected' ? 'Заявка отклонена' : 'Доступ приостановлен'}</h2><p class="mp">Свяжитесь с менеджером IT-Trade.</p><div class="me-a"><button type="button" class="btn wide" data-mecheck>Проверить ещё раз</button><button type="button" class="lnk" data-melogout>Выйти</button></div></div>`;
-    view.innerHTML = `<div class="ttl"><a class="back" href="#/" aria-label="Назад">‹</a><h1>Кабинет монтажника</h1></div><div class="me-box">${box}</div>`;
+    view.innerHTML = `<div class="ttl"><a class="back" href="#/" aria-label="Назад">‹</a><h1>${stt === 'active' ? 'Профиль' : 'Кабинет монтажника'}</h1></div><div class="me-box">${box}</div>`;
   }
   async function doLogin(phone, pass) {
     const j = await sbReq('/auth/v1/token?grant_type=password', { method: 'POST', body: { email: emailOf(phone), password: pass } });
@@ -1094,7 +1094,7 @@ ${tab === 'login' ? `<p class="mp">Войдите по телефону и па�
 ${list.length && mqPhone.matches ? `<div class="mc">${list.map(k => { const c = CL.cById[k.client], o = CL.oByKp[k.id]; return `<div class="mci" data-kpopen="${k.id}"><div class="l"><b>${esc(c ? c.name : 'без клиента')}</b><small>№ ${k.num} · ${fmtDate(k.created_at)} · ${Array.isArray(k.items) ? k.items.length : 0} поз.</small><div class="ps"><span class="stt s-${k.status}">${KST[k.status] || k.status}</span>${o ? `<span class="stt ${OST[o.status][1]}">IT-Trade: ${OST[o.status][0]}</span>` : ''}</div></div><div class="rr"><b>${money(k.total_client)}</b>${sb ? `<span class="g">+${money(profit(k))}</span>` : ''}</div></div>`; }).join('')}</div>`
       : list.length ? `<div class="tw"><table class="ct"><thead><tr><th>№ / дата</th><th>Клиент</th><th class="r">Позиций</th><th class="r">Клиенту</th>${sb ? '<th class="r">Закуп</th><th class="r">Прибыль</th>' : ''}<th>Статус</th><th>IT-Trade</th></tr></thead><tbody>
 ${list.map(k => { const c = CL.cById[k.client], o = CL.oByKp[k.id]; return `<tr data-kpopen="${k.id}"><td><b>№ ${k.num}</b><small>${fmtDate(k.created_at)}</small></td><td><b>${esc(c ? c.name : 'без клиента')}</b></td><td class="r">${Array.isArray(k.items) ? k.items.length : '—'}</td><td class="r"><b>${money(k.total_client)}</b></td>${sb ? `<td class="r mut">${money(k.total_buy)}</td><td class="r g">+${money(profit(k))}</td>` : ''}<td><span class="stt s-${k.status}">${KST[k.status] || k.status}</span></td><td>${o ? `<span class="stt ${OST[o.status][1]}">${OST[o.status][0]}</span>` : '<span class="mut">—</span>'}</td></tr>`; }).join('')}</tbody></table></div>`
-      : `<div class="empty"><b>${CL.kps.length ? 'Ничего не найдено' : 'Заказов пока нет'}</b>${CL.kps.length ? '' : 'Соберите КП из каталога и нажмите «В мои клиенты» — заказ появится здесь.'}</div>`}`;
+      : `<div class="empty"><b>${CL.kps.length ? 'Ничего не найдено' : 'Заказов пока нет'}</b>${CL.kps.length ? '' : 'Соберите КП из каталога и нажмите «Сохранить» — заказ появится здесь.'}</div>`}`;
   }
   function vClients() { cabLoad('clients', drawClients); }
   function drawClients() {
@@ -1107,7 +1107,7 @@ ${list.map(k => { const c = CL.cById[k.client], o = CL.oByKp[k.id]; return `<tr 
 ${list.length && mqPhone.matches ? `<div class="mc">${list.map(c => { const g = agg(c); return `<div class="mci" data-cl="${c.id}"><div class="l"><b>${esc(c.name)}</b><small>${esc([c.phone, c.address].filter(Boolean).join(' · ') || '—')}</small><small>Заказов: ${g.n} · последний ${fmtDate(g.last)}</small></div><div class="rr"><b>${money(g.sum)}</b>${sb && g.pr ? `<span class="g">+${money(g.pr)}</span>` : ''}</div></div>`; }).join('')}</div>`
       : list.length ? `<div class="tw"><table class="ct"><thead><tr><th>Клиент</th><th>Адрес объекта</th><th class="r">Заказов</th><th class="r">Сумма</th>${sb ? '<th class="r">Заработано</th>' : ''}<th>Последний</th></tr></thead><tbody>
 ${list.map(c => { const g = agg(c); return `<tr data-cl="${c.id}"><td><b>${esc(c.name)}</b><small>${esc(c.phone || '')}</small></td><td class="mut">${esc(c.address || '—')}</td><td class="r">${g.n}</td><td class="r"><b>${money(g.sum)}</b></td>${sb ? `<td class="r g">${g.pr ? '+' + money(g.pr) : '—'}</td>` : ''}<td>${fmtDate(g.last)}</td></tr>`; }).join('')}</tbody></table></div>`
-      : `<div class="empty"><b>${CL.list.length ? 'Ничего не найдено' : 'Пока нет клиентов'}</b>${CL.list.length ? '' : 'Добавьте клиента кнопкой «+ Клиент» или сохраните КП «В мои клиенты».'}</div>`}`;
+      : `<div class="empty"><b>${CL.list.length ? 'Ничего не найдено' : 'Пока нет клиентов'}</b>${CL.list.length ? '' : 'Добавьте клиента кнопкой «+ Клиент» или сохраните КП кнопкой «Сохранить».'}</div>`}`;
   }
   function vReport() { cabLoad('report', drawReport); }
   function drawReport() {
