@@ -1,7 +1,7 @@
 'use strict';
 /* Dahua прайс IT-Trade — PWA. Данные: data.js (PRICE, DATA), images.js (IMAGES). */
 (function () {
-  const APP_VER = '17';
+  const APP_VER = '18';
   const VAT = 22;
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -1089,7 +1089,7 @@ ${tab === 'login' ? `<p class="mp">Войдите по телефону и па�
     const cnt = k => CL.kps.filter(x => k === 'all' || x.status === k).length;
     let list = CL.kps.filter(x => f === 'all' || x.status === f);
     if (qv) list = list.filter(x => norm(['№' + x.num, x.num, (CL.cById[x.client] || {}).name].join(' ')).includes(qv));
-    view.innerHTML = cabTabs('orders') + `<div class="ttl"><h1>Заказы</h1><span class="n">${CL.kps.length}</span><div class="fbar"><input class="cl-q" id="oQ" placeholder="Поиск: клиент, №" value="${esc(st.oq || '')}"><button type="button" class="btn sm" data-neworder>+ Новый заказ</button></div></div>
+    view.innerHTML = cabTabs('orders') + `<div class="ttl"><h1>Заказы</h1><span class="n">${CL.kps.length}</span><button type="button" class="btn sm ttl-btn" data-neworder>+ Новый заказ</button><div class="fbar fsrch"><input class="cl-q" id="oQ" placeholder="Поиск: клиент, №" value="${esc(st.oq || '')}"></div></div>
 <div class="chips2">${[['all', 'Все']].concat(Object.keys(KST).map(k => [k, KST[k]])).map(([k, l]) => `<button type="button" data-of="${k}"${f === k ? ' class="on"' : ''}>${l[0].toUpperCase() + l.slice(1)} <em>${cnt(k)}</em></button>`).join('')}</div>
 ${list.length && mqPhone.matches ? `<div class="mc">${list.map(k => { const c = CL.cById[k.client], o = CL.oByKp[k.id]; return `<div class="mci" data-kpopen="${k.id}"><div class="l"><b>${esc(c ? c.name : 'без клиента')}</b><small>№ ${k.num} · ${fmtDate(k.created_at)} · ${Array.isArray(k.items) ? k.items.length : 0} поз.</small><div class="ps"><span class="stt s-${k.status}">${KST[k.status] || k.status}</span>${o ? `<span class="stt ${OST[o.status][1]}">IT-Trade: ${OST[o.status][0]}</span>` : ''}</div></div><div class="rr"><b>${money(k.total_client)}</b>${sb ? `<span class="g">+${money(profit(k))}</span>` : ''}</div></div>`; }).join('')}</div>`
       : list.length ? `<div class="tw"><table class="ct"><thead><tr><th>№ / дата</th><th>Клиент</th><th class="r">Позиций</th><th class="r">Клиенту</th>${sb ? '<th class="r">Закуп</th><th class="r">Прибыль</th>' : ''}<th>Статус</th><th>IT-Trade</th></tr></thead><tbody>
@@ -1103,7 +1103,7 @@ ${list.map(k => { const c = CL.cById[k.client], o = CL.oByKp[k.id]; return `<tr 
     let list = CL.list.slice();
     if (qv) list = list.filter(c => norm([c.name, c.phone, c.address, c.note].join(' ')).includes(qv));
     const agg = c => { const ks = (byC[c.id] || []).filter(k => k.status !== 'cancel'); return { n: ks.length, sum: ks.reduce((a, k) => a + (k.total_client || 0), 0), pr: ks.filter(k => k.status === 'done').reduce((a, k) => a + profit(k), 0), last: ks.length ? ks.map(k => k.updated_at).sort().pop() : c.updated_at }; };
-    view.innerHTML = cabTabs('clients') + `<div class="ttl"><h1>Клиенты</h1><span class="n">${CL.list.length}</span><div class="fbar"><input class="cl-q" id="clQ" placeholder="Поиск: имя, телефон, адрес" value="${esc(st.clq || '')}"><button type="button" class="btn sm" data-newclient>+ Клиент</button></div></div>
+    view.innerHTML = cabTabs('clients') + `<div class="ttl"><h1>Клиенты</h1><span class="n">${CL.list.length}</span><button type="button" class="btn sm ttl-btn" data-newclient>+ Клиент</button><div class="fbar fsrch"><input class="cl-q" id="clQ" placeholder="Поиск: имя, телефон, адрес" value="${esc(st.clq || '')}"></div></div>
 ${list.length && mqPhone.matches ? `<div class="mc">${list.map(c => { const g = agg(c); return `<div class="mci" data-cl="${c.id}"><div class="l"><b>${esc(c.name)}</b><small>${esc([c.phone, c.address].filter(Boolean).join(' · ') || '—')}</small><small>Заказов: ${g.n} · последний ${fmtDate(g.last)}</small></div><div class="rr"><b>${money(g.sum)}</b>${sb && g.pr ? `<span class="g">+${money(g.pr)}</span>` : ''}</div></div>`; }).join('')}</div>`
       : list.length ? `<div class="tw"><table class="ct"><thead><tr><th>Клиент</th><th>Адрес объекта</th><th class="r">Заказов</th><th class="r">Сумма</th>${sb ? '<th class="r">Заработано</th>' : ''}<th>Последний</th></tr></thead><tbody>
 ${list.map(c => { const g = agg(c); return `<tr data-cl="${c.id}"><td><b>${esc(c.name)}</b><small>${esc(c.phone || '')}</small></td><td class="mut">${esc(c.address || '—')}</td><td class="r">${g.n}</td><td class="r"><b>${money(g.sum)}</b></td>${sb ? `<td class="r g">${g.pr ? '+' + money(g.pr) : '—'}</td>` : ''}<td>${fmtDate(g.last)}</td></tr>`; }).join('')}</tbody></table></div>`

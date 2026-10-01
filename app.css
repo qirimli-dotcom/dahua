@@ -614,5 +614,21 @@ body.add-mode .kpbar{display:none!important}
 body.add-mode .toast{bottom:calc(96px + var(--sab))}
 body.add-mode .view{padding-bottom:110px}
 @media (max-width:600px){.addbar{bottom:calc(84px + var(--sab))}body.add-mode .toast{bottom:calc(160px + var(--sab))}body.add-mode .view{padding-bottom:180px}.ord-pg .ttl .fbar select{flex:1;min-width:0}.ord-pg .w-tools .fld{width:100%}.ord-pg .w-act button{flex:1;padding:0 8px}.ord-pg .w-act .sp{display:none}.ord-pg .w-act .g{flex-basis:100%}.ost{order:5}}
+/* v18: шапки списков и кнопки окон на телефоне */
+.ttl .ttl-btn{order:3;flex:none;white-space:nowrap}
+.ttl .fsrch{order:2;margin-left:auto}
+.btn{display:inline-flex;align-items:center;justify-content:center}
+@media (max-width:600px){
+  .ttl .ttl-btn{order:2;margin-left:auto}
+  .ttl .fsrch{order:4;flex-basis:100%;margin-left:0}
+  .ttl .fsrch .cl-q{flex:1 1 auto;width:100%;min-width:0}
+  .chips2{flex-wrap:nowrap;overflow-x:auto;margin-left:-12px;margin-right:-12px;padding:0 12px 2px;scrollbar-width:none}
+  .chips2::-webkit-scrollbar{display:none}
+  .chips2 button{flex:none;white-space:nowrap}
+  .md-a{flex-wrap:wrap}
+  .md-a>span:empty{display:none}
+  .md-a .btn{flex:1 1 100%;height:50px;font-size:15px}
+  .md-a .lnk{order:2;margin:4px auto 0}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 @media print{.top,.side,.kp,.tabbar,.kpbar{display:none!important}}
