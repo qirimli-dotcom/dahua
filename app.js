@@ -1,7 +1,7 @@
 'use strict';
 /* Dahua прайс IT-Trade — PWA. Данные: data.js (PRICE, DATA), images.js (IMAGES). */
 (function () {
-  const APP_VER = '13';
+  const APP_VER = '14';
   const VAT = 22;
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -54,14 +54,16 @@
     const items = Array.isArray(k.items) ? k.items : [];
     return {
       items: items.filter(r => Array.isArray(r) && BYSKU.has(r[0])).map(r => [r[0], Math.max(1, parseInt(r[1]) || 1), r[2] == null || r[2] === '' ? null : Number(r[2])]),
-      client: k.client || '', gd: Number(k.gd) || (Number(k.adj) < 0 ? -Number(k.adj) : 0), srv: k.srv || null
+      client: k.client || '', gd: Number(k.gd) || (Number(k.adj) < 0 ? -Number(k.adj) : 0), srv: k.srv && k.srv.num && !k.srv.id ? k.srv : null
     };
   }
   KP = normKP(KP);
   const FAV = new Set(load('dh-fav', []).filter(s => BYSKU.has(s)));
   const saveKP = () => save('dh-kp', KP);
   const saveFav = () => save('dh-fav', Array.from(FAV));
-  const kpQty = s => { const r = KP.items.find(r => r[0] === s); return r ? r[1] : 0; };
+  const tgtKP = () => (st.addTo && ORD && ORD.id === st.addTo.id) ? ORD.kp : KP;
+  const kpQty = s => { const r = tgtKP().items.find(r => r[0] === s); return r ? r[1] : 0; };
+  let ORD = null;
   const lineDisc = r => r && r[2] != null ? r[2] : (Number(KP.gd) || 0);
   const discPrice = (it, d) => it.price == null ? null : Math.round(it.price * (1 - (Number(d) || 0) / 100));
   const unitPrice = it => discPrice(it, lineDisc(KP.items.find(x => x[0] === it.s)));
@@ -317,7 +319,7 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
     if (!force && st.rendered === h) return;
     const p = parse(h);
     if (p[0] !== 's') { st.q = ''; if (qIn.value && document.activeElement !== qIn) qIn.value = ''; $('#qx').hidden = !qIn.value; $('#qn').textContent = ITEMS.length.toLocaleString('ru-RU'); }
-    if (p[0] === 'c') vCat(+p[1], p[2]);
+    if (p[0] === 'c') { st.lastCat = h; vCat(+p[1], p[2]); }
     else if (p[0] === 's' && p[1]) { st.q = p[1]; if (qIn.value !== p[1] && document.activeElement !== qIn) qIn.value = p[1]; $('#qx').hidden = false; vSearch(p[1]); }
     else if (p[0] === 'fav') vFav();
     else if (p[0] === 'me') vMe();
@@ -325,12 +327,15 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
     else if (p[0] === 'orders' || p[0] === 'cab') vOrders();
     else if (p[0] === 'report') vReport();
     else if (p[0] === 'kpw') vKPW();
+    else if (p[0] === 'order' && p[1]) vOrder(p[1]);
     else if (p[0] === 'client' && p[1]) vClient(p[1]);
     else vHome();
-    document.body.classList.toggle('cab-wide', ['orders', 'cab', 'clients', 'client', 'report', 'kpw'].includes(p[0]));
+    document.body.classList.toggle('cab-wide', ['orders', 'cab', 'clients', 'client', 'report', 'kpw', 'order'].includes(p[0]));
+    if (ORD && ORD.state === 'dirty' && p[0] !== 'order') ordSave();
+    drawAddBar(p[0] === 'order');
     const scrollTop = st.rendered !== h; st.rendered = h; st.base = h;
     if (scrollTop) { if (lk.on) lk.reset = true; else window.scrollTo(0, 0); }
-    setTab(p[0] === 'fav' ? 'fav' : p[0] === 's' ? 'search' : ['clients', 'client', 'me', 'orders', 'cab', 'report'].includes(p[0]) ? 'fav' : p[0] === 'kpw' ? 'kp' : 'cat');
+    setTab(p[0] === 'fav' ? 'fav' : p[0] === 's' ? 'search' : ['clients', 'client', 'me', 'orders', 'cab', 'report', 'order'].includes(p[0]) ? 'fav' : p[0] === 'kpw' ? 'kp' : 'cat');
   }
   let sheetPushed = false, kpPushed = false;
   function route() {
@@ -465,6 +470,7 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
   function qpGo() {
     if (!qp || !(qp.q > 0)) return;
     const s = qp.s, q = qp.q, had = kpQty(s);
+    if (st.addTo) { ordSetQty(s, q); closeQP(); toast((had ? 'Обновлено в заказе: ' : 'Добавлено в заказ: ') + s + ', ' + q + ' шт'); return; }
     setQty(s, q); closeQP();
     toast((had ? 'Обновлено в КП: ' : 'Добавлено в КП: ') + s + ', ' + q + ' шт', 'Открыть', () => { location.hash = '#/kp'; });
   }
@@ -476,7 +482,7 @@ ${showSheet ? `<div class="shn">${esc(it.sheet)}</div>` : ''}<button class="sku"
     if (t.closest('[data-qinc]')) { qp.q = Math.min(99999, (qp.q || 0) + 1); return qpUpdate(); }
     const st = t.closest('[data-qset]'); if (st) { qp.q = +st.dataset.qset; return qpUpdate(); }
     if (t.closest('[data-qgo]')) return qpGo();
-    if (t.closest('[data-qdel]')) { const s = qp.s; setQty(s, 0); closeQP(); toast('Убрано из КП: ' + s); }
+    if (t.closest('[data-qdel]')) { const s = qp.s; if (st.addTo) ordSetQty(s, 0); else setQty(s, 0); closeQP(); toast('Убрано: ' + s); }
   }
   document.addEventListener('click', e => {
     if (!qp) return;
@@ -535,7 +541,7 @@ ${specs.length ? `<div class="tags">${specs.map(x => `<span>${esc(x)}</span>`).j
       return;
     }
     if (e.target.closest('[data-tokp]')) {
-      const had = kpQty(s); setQty(s, parseInt(qi.value) || 1);
+      const had = kpQty(s); if (st.addTo) { ordSetQty(s, parseInt(qi.value) || 1); closeSheet(); toast((had ? 'Обновлено в заказе: ' : 'Добавлено в заказ: ') + s); return; } setQty(s, parseInt(qi.value) || 1);
       toast((had ? 'Обновлено в КП: ' : 'Добавлено в КП: ') + s, 'Открыть', () => { location.hash = '#/kp'; });
       closeSheet();
     }
@@ -563,8 +569,8 @@ ${specs.length ? `<div class="tags">${specs.map(x => `<span>${esc(x)}</span>`).j
   function renderKP() {
     const t = kpTotals(), gd = Number(KP.gd) || 0, sb = seeBuy(), me = inst();
     const active = document.activeElement, activeId = active && active.id, activeS = active && active.closest && active.closest('.kr') ? active.closest('.kr').dataset.s : null;
-    const srv = KP.srv && KP.srv.id ? KP.srv : null;
-    kpEl.innerHTML = `<div class="kp-h"><h2>${srv ? 'КП № ' + srv.num : 'Коммерческое предложение'}</h2>${t.n || KP.srv ? '<button class="lnk" data-clear>' + (KP.srv ? 'Новое' : 'Очистить') + '</button>' : ''}${t.n ? '<a class="lnk kp-wide" href="#/kpw">Развернуть</a>' : ''}<button class="kp-x" data-kpclose aria-label="Закрыть">✕</button></div>
+    const srv = null;
+    kpEl.innerHTML = `<div class="kp-h"><h2>${srv ? 'КП № ' + srv.num : 'Коммерческое предложение'}</h2>${t.n ? '<button class="lnk" data-clear>Очистить</button>' : ''}${t.n ? '<a class="lnk kp-wide" href="#/kpw">Развернуть</a>' : ''}<button class="kp-x" data-kpclose aria-label="Закрыть">✕</button></div>
 ${srv ? `<div class="kp-srv"><span>${esc(KP.srv.clientName || 'без клиента')}</span><select id="kpStatus" aria-label="Статус КП">${Object.keys(KST).map(k => `<option value="${k}"${srv.status === k ? ' selected' : ''}>${KST[k]}</option>`).join('')}</select></div>` : ''}
 <div class="kp-f"><label class="fld"><small>Клиент</small><input id="kpClient" value="${esc(KP.client)}" placeholder="название или имя" autocomplete="off"></label>
 <label class="fld"><small>Скидка клиенту на всё</small><input id="kpGd" type="number" inputmode="decimal" step="1" min="0" max="90" value="${gd || ''}" placeholder="0"><small>%</small></label></div>
@@ -580,8 +586,8 @@ ${srv ? `<div class="kp-srv"><span>${esc(KP.srv.clientName || 'без клиен
 <div class="kp-s"><div><span>Позиций / штук</span><span>${t.n} / ${t.pcs}</span></div>${t.anyDisc ? `<div><span>По РРЦ</span><span>${money(t.rrp)}</span></div><div><span>Скидка клиенту</span><span class="red">−${money(t.disc)}</span></div>` : ''}<div><span>в т.ч. НДС ${VAT} %</span><span>${money(t.vat)}</span></div><div class="t"><span>Итого</span><span>${money(t.sum)}</span></div>
 ${sb && t.n ? `<div class="bz"><span>Ваш закуп (−${instDisc()} %)</span><span>${money(t.buy)}</span></div><div class="bz pr"><span>Ваша прибыль</span><span>${money(t.profit)}${t.sum ? ' · ' + Math.round(t.profit / t.sum * 100) + ' %' : ''}</span></div>` : ''}
 ${t.unknown ? `<span class="note">Без учёта позиций «по запросу»: ${t.unknown}</span>` : ''}</div>
-<div class="kp-a"><button data-pdf${t.n ? '' : ' disabled'}>PDF</button><button data-xlsx${t.n ? '' : ' disabled'}>Excel</button><button class="p" data-send${t.n ? '' : ' disabled'}>Отправить</button></div>
-${me ? `<div class="kp-a kp-a2"><button data-save${t.n ? '' : ' disabled'}>${srv ? 'Сохранить' : 'В мои клиенты'}</button><button class="g" data-order${t.n ? '' : ' disabled'}>Заказать у IT-Trade</button></div>` : ''}`;
+${me ? `<div class="kp-a"><button data-pdf${t.n ? '' : ' disabled'}>PDF</button><button class="p" data-save${t.n ? '' : ' disabled'}>Сохранить</button></div>`
+      : `<div class="kp-a"><button data-pdf${t.n ? '' : ' disabled'}>PDF</button><button data-xlsx${t.n ? '' : ' disabled'}>Excel</button><button class="p" data-send${t.n ? '' : ' disabled'}>Отправить</button></div>`}`;
     if (activeId === 'kpClient' || activeId === 'kpGd') { const el = $('#' + activeId); el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} }
     else if (activeS) { const el = $(`.kr[data-s="${CSS.escape(activeS)}"] input`, kpEl); if (el && active.tagName === 'INPUT') el.focus(); }
     updateBadges(t);
@@ -603,14 +609,15 @@ ${me ? `<div class="kp-a kp-a2"><button data-save${t.n ? '' : ' disabled'}>${srv
   $('#tabbar a[data-tab="kp"]').addEventListener('click', () => { kpPushed = !/^#\/kp/.test(location.hash); });
   function closeKP() { document.body.classList.remove('kp-open'); if (/^#\/kp/.test(location.hash)) { const f = kpPushed; kpPushed = false; goBackOr(st.base, f); } }
   $('#scrim').addEventListener('click', closeKP);
-  function lineDiscPrompt(s) {
-    const r = KP.items.find(x => x[0] === s); if (!r) return;
+  function lineDiscPrompt(s, tk, after) {
+    tk = tk || KP;
+    const r = tk.items.find(x => x[0] === s); if (!r) return;
     const it = BYSKU.get(s);
     openModal(`<h2>Скидка на позицию</h2><p class="mp">${esc(s)}<br>РРЦ ${money(it.price)}${seeBuy() && it.price != null ? ', ваш закуп ' + money(buyPrice(it)) : ''}</p>
-<div class="md-q">${[0, 5, 10, 15, 20].map(n => `<button type="button" data-ld="${n}"${lineDisc(r) === n ? ' class="on"' : ''}>${n ? '−' + n + ' %' : 'без'}</button>`).join('')}</div>
-<label class="fld"><small>Своя скидка</small><input id="ldIn" type="number" inputmode="decimal" min="0" max="90" value="${r[2] != null ? r[2] : ''}" placeholder="${Number(KP.gd) || 0}"><small>%</small></label>
+<div class="md-q">${[0, 5, 10, 15, 20].map(n => `<button type="button" data-ld="${n}"${(r[2] != null ? r[2] : Number(tk.gd) || 0) === n ? ' class="on"' : ''}>${n ? '−' + n + ' %' : 'без'}</button>`).join('')}</div>
+<label class="fld"><small>Своя скидка</small><input id="ldIn" type="number" inputmode="decimal" min="0" max="90" value="${r[2] != null ? r[2] : ''}" placeholder="${Number(tk.gd) || 0}"><small>%</small></label>
 <div class="md-a">${r[2] != null ? '<button type="button" class="lnk" data-ldreset>Как у всего КП</button>' : '<span></span>'}<button type="button" class="btn" data-ldok>Применить</button></div>`, e => {
-      const set = v => { r[2] = v; saveKP(); renderKP(); closeModal(); };
+      const set = v => { r[2] = v; closeModal(); if (after) after(); else { saveKP(); renderKP(); } };
       const b = e.target.closest('[data-ld]'); if (b) return set(Number(b.dataset.ld));
       if (e.target.closest('[data-ldreset]')) return set(null);
       if (e.target.closest('[data-ldok]')) { const v = parseFloat(String($('#ldIn').value).replace(',', '.')); set(isFinite(v) ? Math.max(0, Math.min(90, Math.round(v * 10) / 10)) : null); }
@@ -619,11 +626,11 @@ ${me ? `<div class="kp-a kp-a2"><button data-save${t.n ? '' : ' disabled'}>${srv
   kpEl.addEventListener('click', e => {
     const r = e.target.closest('.kr'), s = r && r.dataset.s;
     if (e.target.closest('[data-kpclose]')) return closeKP();
-    if (e.target.closest('[data-clear]')) { if (!KP.items.length || confirm(KP.srv ? 'Начать новое КП? Сохранённое останется в «Моих клиентах».' : 'Очистить КП?')) { KP = normKP({}); saveKP(); renderKP(); refreshAdds(); } return; }
+    if (e.target.closest('[data-clear]')) { if (!KP.items.length || confirm('Очистить КП?')) { KP = normKP({}); saveKP(); renderKP(); refreshAdds(); } return; }
     if (e.target.closest('[data-pdf]')) return run(e.target.closest('button'), () => exportPDF(false));
     if (e.target.closest('[data-xlsx]')) return run(e.target.closest('button'), exportXLSX);
     if (e.target.closest('[data-send]')) return run(e.target.closest('button'), () => exportPDF(true));
-    if (e.target.closest('[data-save]')) return run(e.target.closest('button'), saveKPServer);
+    if (e.target.closest('[data-save]')) return saveCartDialog();
     if (e.target.closest('[data-order]')) return orderDialog();
     if (!s) return;
     if (e.target.closest('[data-ldisc]')) return lineDiscPrompt(s);
@@ -1140,9 +1147,9 @@ ${list.map(c => { const g = agg(c); return `<tr data-cl="${c.id}"><td><b>${esc(c
   function drawKPW() {
     const t = kpTotals(), gd = Number(KP.gd) || 0, sb = seeBuy(), me = inst(), srv = KP.srv && KP.srv.id ? KP.srv : null;
     const ae = document.activeElement, aeId = ae && ae.id;
-    view.innerHTML = (me ? cabTabs('orders') : '') + `<div class="ttl"><a class="back" href="${me ? '#/orders' : '#/'}" aria-label="Назад">‹</a><h1>${srv ? 'КП № ' + srv.num : 'Новое КП'}</h1>
+    view.innerHTML = (me ? cabTabs('orders') : '') + `<div class="ttl"><a class="back" href="${me ? '#/orders' : '#/'}" aria-label="Назад">‹</a><h1>Новое КП</h1>
 <div class="fbar"><label class="fld w-cl"><small>Клиент</small><input id="wClient" value="${esc(KP.client)}" placeholder="название или имя"></label>
-${srv ? `<select id="wStatus" class="sort" aria-label="Статус">${Object.keys(KST).map(k => `<option value="${k}"${srv.status === k ? ' selected' : ''}>${KST[k]}</option>`).join('')}</select>` : ''}
+
 ${me ? `<button type="button" class="hbtn buyb${showBuy ? ' on' : ''}" data-wbuy>👁 закуп</button>` : ''}</div></div>
 ${t.n ? `<div class="tw"><table class="ct kpw"><thead><tr><th></th><th>Товар</th><th class="c">Кол-во</th><th class="r">РРЦ</th><th class="c">Скидка</th><th class="r">Цена клиенту</th><th class="r">Сумма</th>${sb ? '<th class="r bu">Закуп</th>' : ''}<th></th></tr></thead><tbody>
 ${KP.items.map(r => { const [s, qn] = r, it = BYSKU.get(s), d = lineDisc(r), u = discPrice(it, d), bp = buyPrice(it); return `<tr class="wr" data-s="${esc(s)}"><td class="ph">${imgTag(s, '')}</td><td><button class="sku" data-open>${esc(s)}</button><small>${esc(it.d)}</small></td>
@@ -1153,25 +1160,21 @@ ${KP.items.map(r => { const [s, qn] = r, it = BYSKU.get(s), d = lineDisc(r), u =
 <div class="w-tools"><label class="fld"><small>Скидка клиенту на всё</small><input id="wGd" type="number" inputmode="decimal" min="0" max="90" value="${gd || ''}" placeholder="0"><small>%</small></label><a class="btn2" href="#/">+ Товары из каталога</a>${t.n ? '<button type="button" class="lnk" data-wclear>Очистить</button>' : ''}</div>
 <div class="w-tot"><div class="tb"><span>По РРЦ</span><b>${money(t.rrp)}</b></div><div class="tb cl"><span>Клиенту${t.anyDisc ? ' со скидкой' : ''}</span><b>${money(t.sum)}</b><small>${t.anyDisc ? 'скидка ' + money(t.disc) + ', ' : ''}в т.ч. НДС ${VAT} % ${money(t.vat)}</small></div>
 ${sb ? `<div class="tb"><span>Ваш закуп (−${instDisc()} %)</span><b>${money(t.buy)}</b></div><div class="tb pr"><span>Ваша прибыль</span><b>${money(t.profit)}</b><small>${t.sum ? Math.round(t.profit / t.sum * 100) + ' % от суммы клиента' : ''}</small></div>` : ''}</div>
-<div class="w-act"><button data-wpdf${t.n ? '' : ' disabled'}>PDF клиенту</button><button data-wxlsx${t.n ? '' : ' disabled'}>Excel</button><button class="p" data-wsend${t.n ? '' : ' disabled'}>Отправить</button>${me ? `<span class="sp"></span><button data-wsave${t.n ? '' : ' disabled'}>${srv ? 'Сохранить' : 'Сохранить в клиента'}</button><button class="g" data-worder${t.n ? '' : ' disabled'}>Заказать у IT-Trade</button>` : ''}</div>`;
+<div class="w-act">${me ? `<button data-wpdf${t.n ? '' : ' disabled'}>PDF клиенту</button><span class="sp"></span><button class="p" data-wsave${t.n ? '' : ' disabled'}>Сохранить</button>` : `<button data-wpdf${t.n ? '' : ' disabled'}>PDF клиенту</button><button data-wxlsx${t.n ? '' : ' disabled'}>Excel</button><button class="p" data-wsend${t.n ? '' : ' disabled'}>Отправить</button>`}</div>`;
     if (aeId === 'wClient' || aeId === 'wGd') { const el = $('#' + aeId); if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} } }
   }
   view.addEventListener('click', e => {
     const t = e.target;
     const of = t.closest('[data-of]'); if (of) { st.of = of.dataset.of; drawOrders(); return; }
     const rp = t.closest('[data-rp]'); if (rp) { st.rp = rp.dataset.rp; drawReport(); return; }
-    if (t.closest('[data-neworder]')) {
-      if (KP.items.length && !(KP.srv && KP.srv.id) && !confirm('Текущее КП не сохранено и будет очищено. Начать новый заказ?')) return;
-      KP = normKP({}); saveKP(); renderKP(); refreshAdds(); location.hash = '#/'; toast('Новый заказ: добавляйте товары кнопкой «+»'); return;
-    }
+    if (t.closest('[data-neworder]')) { pickClient('Новый заказ', 'Создать заказ', null, (cid, cname) => createOrder(cid, cname, normKP({ client: cname }), true)); return; }
     if (!$('.kpw', view) && !$('.w-act', view)) return;
     if (t.closest('[data-wbuy]')) return toggleBuy();
     if (t.closest('[data-wclear]')) { if (confirm('Очистить КП?')) { KP = normKP({}); saveKP(); renderKP(); refreshAdds(); } return; }
     if (t.closest('[data-wpdf]')) return run(t.closest('button'), () => exportPDF(false));
     if (t.closest('[data-wxlsx]')) return run(t.closest('button'), exportXLSX);
     if (t.closest('[data-wsend]')) return run(t.closest('button'), () => exportPDF(true));
-    if (t.closest('[data-wsave]')) return run(t.closest('button'), saveKPServer);
-    if (t.closest('[data-worder]')) return orderDialog();
+    if (t.closest('[data-wsave]')) return saveCartDialog();
     const r = t.closest('tr.wr'), s = r && r.dataset.s; if (!s) return;
     if (t.closest('[data-ldisc]')) return lineDiscPrompt(s);
     if (t.closest('[data-del]')) return setQty(s, 0);
@@ -1185,7 +1188,6 @@ ${sb ? `<div class="tb"><span>Ваш закуп (−${instDisc()} %)</span><b>${
   });
   view.addEventListener('change', e => {
     if (e.target.id === 'wGd') { const v = parseFloat(String(e.target.value).replace(',', '.')) || 0; KP.gd = Math.max(0, Math.min(90, Math.round(v * 10) / 10)); saveKP(); renderKP(); return; }
-    if (e.target.id === 'wStatus') { const v = e.target.value; db('kps?id=eq.' + U(KP.srv.id), { method: 'PATCH', body: { status: v } }).then(() => { KP.srv.status = v; saveKP(); CL.at = 0; renderKP(); toast('Статус: ' + KST[v]); }).catch(err => toast(err.message)); return; }
     const r = e.target.closest('tr.wr'); if (r && e.target.tagName === 'INPUT') setQty(r.dataset.s, e.target.value);
   });
   async function vClient(id) {
@@ -1196,7 +1198,7 @@ ${sb ? `<div class="tb"><span>Ваш закуп (−${instDisc()} %)</span><b>${
     try { [c, ks] = await Promise.all([db('clients?select=*&id=eq.' + U(id)), db('kps?select=id,client,num,status,total_client,total_buy,total_rrp,updated_at&order=updated_at.desc&limit=200&client=eq.' + U(id))]); c = c[0]; if (!c) throw new Error('Клиент не найден'); }
     catch (err) { view.innerHTML = cabTabs('clients') + `<div class="ttl"><a class="back" href="#/clients">‹</a><h1>Клиент</h1></div><div class="empty"><b>${esc(err.message)}</b></div>`; return; }
     const sum = ks.filter(k => k.status !== 'cancel').reduce((a, k) => a + (k.total_client || 0), 0), pr = ks.filter(k => ['agreed', 'ordered', 'done'].includes(k.status)).reduce((a, k) => a + (k.total_client || 0) - (k.total_buy || 0), 0);
-    view.innerHTML = cabTabs('clients') + `<div class="ttl"><a class="back" href="#/clients" aria-label="Назад">‹</a><h1>${esc(c.name)}</h1><div class="fbar"><button type="button" class="btn sm" data-newkp="${c.id}">+ Новое КП</button></div></div>
+    view.innerHTML = cabTabs('clients') + `<div class="ttl"><a class="back" href="#/clients" aria-label="Назад">‹</a><h1>${esc(c.name)}</h1><div class="fbar"><button type="button" class="btn sm" data-newkp="${c.id}">+ Новый заказ</button></div></div>
 <div class="cl-grid"><div class="cl-card"><h3>Данные клиента</h3>
 <label class="fl"><span>Название / имя</span><input id="ceName" value="${esc(c.name)}"></label>
 <label class="fl"><span>Телефон</span><input id="cePhone" type="tel" value="${esc(c.phone || '')}"></label>
@@ -1239,19 +1241,14 @@ ${ks.map(k => `<div class="kpc"><div class="kpl" data-kpopen="${k.id}"><span cla
       clientForm('Новый клиент', null, async body => { const c = (await db('clients', { method: 'POST', body }))[0]; closeModal(); CL.at = 0; location.hash = '#/client/' + c.id; });
       return;
     }
-    const kc = t.closest('[data-kpcopy]'); if (kc) { openServerKP(kc.dataset.kpcopy, true); return; }
+    const kc = t.closest('[data-kpcopy]'); if (kc) { copyOrder(kc.dataset.kpcopy); return; }
     const kd = t.closest('[data-kpdel]'); if (kd) {
       if (!confirm('Удалить КП?')) return;
-      try { await db('kps?id=eq.' + U(kd.dataset.kpdel), { method: 'DELETE' }); if (KP.srv && KP.srv.id === kd.dataset.kpdel) { KP.srv = null; saveKP(); renderKP(); } CL.at = 0; renderBase(st.base, true); toast('КП удалено'); } catch (err) { toast(err.message); }
+      try { await db('kps?id=eq.' + U(kd.dataset.kpdel), { method: 'DELETE' }); if (ORD && ORD.id === kd.dataset.kpdel) ORD = null; CL.at = 0; renderBase(st.base, true); toast('КП удалено'); } catch (err) { toast(err.message); }
       return;
     }
-    const ko = t.closest('[data-kpopen]'); if (ko) { openServerKP(ko.dataset.kpopen, false); return; }
-    const nk = t.closest('[data-newkp]'); if (nk) {
-      if (KP.items.length && !confirm('Начать новое КП для клиента? Текущее КП ' + (KP.srv && KP.srv.id ? 'сохранено в клиентах.' : 'не сохранено и будет очищено.'))) return;
-      KP = normKP({ client: view.dataset.cname || '' }); KP.srv = { client: nk.dataset.newkp, clientName: view.dataset.cname || '' }; saveKP(); renderKP(); refreshAdds();
-      location.hash = '#/'; toast('Новое КП для ' + (view.dataset.cname || 'клиента') + ': добавляйте товары');
-      return;
-    }
+    const ko = t.closest('[data-kpopen]'); if (ko) { location.hash = '#/order/' + ko.dataset.kpopen; return; }
+    const nk = t.closest('[data-newkp]'); if (nk) { createOrder(nk.dataset.newkp, view.dataset.cname || '', normKP({ client: view.dataset.cname || '' }), true).catch(err => toast(err.message)); return; }
     const cs = t.closest('[data-cesave]'); if (cs) {
       const body = { name: $('#ceName').value.trim(), phone: $('#cePhone').value.trim(), address: $('#ceAddr').value.trim(), note: $('#ceNote').value.trim() };
       if (!body.name) return toast('Укажите название клиента');
@@ -1318,6 +1315,210 @@ ${CL.list.length ? `<div class="sk-list">${CL.list.slice(0, 50).map(c => `<butto
       } catch (err) { toast(err.message); b.disabled = false; }
     });
   }
+
+  /* ---------- заказ: отдельная страница, автосохранение, добавление из каталога ---------- */
+  function totalsOf(k) { const sv = KP; KP = k; try { return kpTotals(); } finally { KP = sv; } }
+  async function asKP(k, fn) { const sv = KP; KP = k; try { return await fn(); } finally { KP = sv; } }
+  function orderBody(k) { const t = totalsOf(k); return { data: { items: k.items, gd: Number(k.gd) || 0, client: k.client }, total_rrp: t.rrp, total_client: t.sum, total_buy: t.buy }; }
+  async function createOrder(cid, cname, k, open) {
+    const r = (await db('kps', { method: 'POST', body: Object.assign({ client: cid || null, status: 'draft' }, orderBody(k)) }))[0];
+    CL.at = 0;
+    if (open) { ORD = null; location.hash = '#/order/' + r.id; }
+    return r;
+  }
+  function pickClient(title, btn, preId, onPick) {
+    const go = async () => {
+      try { await loadClients(); } catch (e) { toast(e.message); return; }
+      let sel = preId || null, q = '', isNew = !CL.list.length;
+      const draw = () => {
+        const list = CL.list.filter(c => !q || norm([c.name, c.phone, c.address].join(' ')).includes(norm(q))).slice(0, 60);
+        const box = $('#pcBox', modal); if (!box) return;
+        box.innerHTML = (isNew ? '' : list.map(c => `<button type="button" class="pc${sel === c.id ? ' on' : ''}" data-pc="${c.id}"><span class="rd"></span><span><b>${esc(c.name)}</b><small>${esc([c.phone, c.address].filter(Boolean).join(' · ') || ' ')}</small></span></button>`).join('') || (q ? '<p class="mp">Не найдено — создайте нового клиента.</p>' : ''))
+          + (isNew ? `<label class="fl"><span>Новый клиент</span><input id="pcName" placeholder="ООО «Стройдом» или Иванов А.П." value="${esc(q)}"></label><label class="fl"><span>Телефон (необязательно)</span><input id="pcPhone" type="tel"></label>${CL.list.length ? '<button type="button" class="lnk" data-pcback>← выбрать из списка</button>' : ''}`
+            : '<button type="button" class="pc-new" data-pcnew>+ Новый клиент</button>');
+      };
+      openModal(`<h2>${title}</h2><p class="mp">Для какого клиента?</p>${CL.list.length ? '<input class="pc-q" id="pcQ" placeholder="Поиск клиента" autocomplete="off">' : ''}<div id="pcBox" class="pc-box"></div><div class="md-a"><span></span><button type="button" class="btn" data-pcok>${btn}</button></div>`, async e => {
+        const p = e.target.closest('[data-pc]'); if (p) { sel = p.dataset.pc; draw(); return; }
+        if (e.target.closest('[data-pcnew]')) { isNew = true; draw(); const i = $('#pcName'); if (i) i.focus(); return; }
+        if (e.target.closest('[data-pcback]')) { isNew = false; draw(); return; }
+        if (!e.target.closest('[data-pcok]')) return;
+        const b = e.target.closest('button'); b.disabled = true;
+        try {
+          let cid = sel, cname = sel && CL.cById[sel] ? CL.cById[sel].name : '';
+          if (isNew) { cname = ($('#pcName').value || '').trim(); if (!cname) { b.disabled = false; return toast('Укажите клиента'); } const c = (await db('clients', { method: 'POST', body: { name: cname, phone: ($('#pcPhone').value || '').trim() } }))[0]; cid = c.id; CL.at = 0; }
+          else if (!cid) { b.disabled = false; return toast('Выберите клиента'); }
+          await onPick(cid, cname); closeModal();
+        } catch (err) { toast(err.message); b.disabled = false; }
+      });
+      const qi = $('#pcQ', modal); if (qi) qi.addEventListener('input', () => { q = qi.value; draw(); });
+      draw();
+    };
+    go();
+  }
+  function saveCartDialog() {
+    if (!inst() || !KP.items.length) return;
+    pickClient('Сохранить заказ', 'Сохранить заказ', null, async (cid, cname) => {
+      const k = normKP(Object.assign({}, KP, { client: KP.client.trim() || cname }));
+      const r = await createOrder(cid, cname, k, false);
+      KP = normKP({}); saveKP(); renderKP(); refreshAdds();
+      if (document.body.classList.contains('kp-open')) closeKP();
+      toast('Заказ № ' + r.num + ' сохранён для ' + cname, 'Открыть', () => { location.hash = '#/order/' + r.id; });
+      if (/^#\/kpw/.test(location.hash)) location.hash = '#/order/' + r.id;
+    });
+  }
+  async function copyOrder(id) {
+    try {
+      const k = (await db('kps?select=*,cl:clients(name)&id=eq.' + U(id)))[0]; if (!k) throw new Error('Заказ не найден');
+      const r = await createOrder(k.client, k.cl ? k.cl.name : '', normKP(k.data || {}), true);
+      toast('Создана копия: заказ № ' + r.num);
+    } catch (err) { toast(err.message); }
+  }
+  async function vOrder(id) {
+    renderSide('orders');
+    if (!inst()) { location.replace('#/me'); return; }
+    if (!ORD || ORD.id !== id) {
+      view.innerHTML = cabTabs('orders') + loading();
+      try {
+        const [k] = await db('kps?select=*,cl:clients(name)&id=eq.' + U(id));
+        if (!k) throw new Error('Заказ не найден');
+        ORD = { id: k.id, num: k.num, status: k.status, client: k.client || null, clientName: k.cl ? k.cl.name : '', kp: normKP(Object.assign({}, k.data || {}, { client: (k.data && k.data.client) || (k.cl ? k.cl.name : '') })), state: 'saved', warned: false };
+        ORD.kp.srv = { num: k.num };
+        loadClients().then(() => { if (location.hash === '#/order/' + id) drawOrder(); }).catch(() => {});
+      } catch (err) { view.innerHTML = cabTabs('orders') + `<div class="empty"><b>${esc(err.message)}</b><a class="lnk" href="#/orders">К заказам</a></div>`; return; }
+      if (location.hash !== '#/order/' + id) return;
+    }
+    if (st.addTo && st.addTo.id === id) { st.addTo = null; drawAddBar(true); }
+    drawOrder();
+  }
+  const ordStateTxt = () => !ORD ? '' : ORD.state === 'saving' ? 'сохраняю…' : ORD.state === 'dirty' ? 'изменено…' : ORD.state === 'error' ? '<button type="button" class="lnk red" data-oretry>не сохранено — повторить</button>' : '✓ сохранено';
+  function drawOrder() {
+    if (!ORD || !/^#\/order\//.test(location.hash)) return;
+    const k = ORD.kp, t = totalsOf(k), gd = Number(k.gd) || 0, sb = seeBuy(), phone = mqPhone.matches;
+    const o = CL.oByKp && CL.oByKp[ORD.id];
+    const ae = document.activeElement, aeId = ae && ae.id;
+    const clientOpts = (CL.list || []).map(c => `<option value="${c.id}"${ORD.client === c.id ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+    const line = r => { const [s, qn] = r, it = BYSKU.get(s), d = r[2] != null ? r[2] : gd, u = discPrice(it, d), bp = buyPrice(it); return { s, qn, it, d, u, bp, own: r[2] != null }; };
+    const rows = k.items.map(line);
+    const list = !k.items.length ? `<div class="empty"><b>В заказе пока нет товаров</b>Нажмите «+ Добавить товары из каталога».</div>`
+      : phone ? `<div class="ol">${rows.map(x => `<div class="or kr" data-s="${esc(x.s)}"><button class="kph" data-open>${imgTag(x.s, '')}</button><div class="kb"><button class="sku" data-open>${esc(x.s)}</button><div class="kd">${esc(x.it.d)}</div>
+<div class="kq"><div class="stp sm"><button data-odec aria-label="Меньше">−</button><input class="oq" inputmode="numeric" value="${x.qn}" aria-label="Количество"><button data-oinc aria-label="Больше">+</button></div><button class="kdisc${x.own ? ' own' : x.d ? ' on' : ''}" data-oldisc>${x.d ? '−' + x.d + ' %' : 'скидка'}</button><b>${x.u == null ? '—' : money(x.u * x.qn)}</b></div>
+<div class="ku">${x.u == null ? 'цена по запросу' : (x.d ? `<s>${money(x.it.price)}</s> ` : '') + money(x.u) + ' за шт'}${sb && x.bp != null ? ` <em class="buy">закуп ${money(x.bp * x.qn)}</em>` : ''}</div></div><button class="kx" data-odel aria-label="Удалить">✕</button></div>`).join('')}</div>`
+      : `<div class="tw"><table class="ct kpw"><thead><tr><th></th><th>Товар</th><th class="c">Кол-во</th><th class="r">РРЦ</th><th class="c">Скидка</th><th class="r">Цена клиенту</th><th class="r">Сумма</th>${sb ? '<th class="r bu">Закуп</th>' : ''}<th></th></tr></thead><tbody>
+${rows.map(x => `<tr class="or" data-s="${esc(x.s)}"><td class="ph">${imgTag(x.s, '')}</td><td><button class="sku" data-open>${esc(x.s)}</button><small>${esc(x.it.d)}</small></td><td class="c"><div class="stp sm"><button data-odec aria-label="Меньше">−</button><input class="oq" inputmode="numeric" value="${x.qn}" aria-label="Количество"><button data-oinc aria-label="Больше">+</button></div></td>
+<td class="r mut">${money(x.it.price)}</td><td class="c"><button class="kdisc${x.own ? ' own' : x.d ? ' on' : ''}" data-oldisc>${x.d ? '−' + x.d + ' %' : '—'}</button></td><td class="r"><b>${x.u == null ? '—' : money(x.u)}</b></td><td class="r"><b>${x.u == null ? '—' : money(x.u * x.qn)}</b></td>${sb ? `<td class="r bu">${x.bp == null ? '—' : money(x.bp * x.qn)}</td>` : ''}<td><button class="kx" data-odel aria-label="Удалить">✕</button></td></tr>`).join('')}</tbody></table></div>`;
+    view.innerHTML = cabTabs('orders') + `<div class="ord-pg"><div class="ttl"><a class="back" href="#/orders" aria-label="К заказам">‹</a><h1>Заказ № ${ORD.num}</h1><span class="ost" id="oState">${ordStateTxt()}</span>
+<div class="fbar"><select id="oClient" class="sort" aria-label="Клиент"><option value="">— без клиента —</option>${clientOpts}<option value="__new">+ Новый клиент…</option></select>
+<select id="oStatus" class="sort" aria-label="Статус">${Object.keys(KST).map(x => `<option value="${x}"${ORD.status === x ? ' selected' : ''}>${KST[x]}</option>`).join('')}</select>
+<button type="button" class="hbtn more" data-omenu aria-label="Ещё">⋯</button></div></div>
+${o ? `<div class="o-it">Заказ в IT-Trade: <span class="stt ${OST[o.status][1]}">${OST[o.status][0]}</span></div>` : ''}
+${list}
+<div class="w-tools"><button type="button" class="btn2 add-b" data-oadd>+ Добавить товары из каталога</button><label class="fld"><small>Скидка клиенту на всё</small><input id="oGd" type="number" inputmode="decimal" min="0" max="90" value="${gd || ''}" placeholder="0"><small>%</small></label></div>
+<div class="w-tot"><div class="tb"><span>По РРЦ</span><b>${money(t.rrp)}</b></div><div class="tb cl"><span>Клиенту${t.anyDisc ? ' со скидкой' : ''}</span><b>${money(t.sum)}</b><small>${t.anyDisc ? 'скидка ' + money(t.disc) + ', ' : ''}в т.ч. НДС ${VAT} % ${money(t.vat)}</small></div>
+${sb ? `<div class="tb"><span>Ваш закуп (−${instDisc()} %)</span><b>${money(t.buy)}</b></div><div class="tb pr"><span>Ваша прибыль</span><b>${money(t.profit)}</b><small>${t.sum ? Math.round(t.profit / t.sum * 100) + ' % от суммы клиента' : ''}</small></div>` : ''}</div>
+<div class="w-act"><button data-opdf${t.n ? '' : ' disabled'}>PDF</button><button data-oxlsx${t.n ? '' : ' disabled'}>Excel</button><button class="p" data-osend${t.n ? '' : ' disabled'}>Отправить клиенту</button><span class="sp"></span><button class="g" data-oorder${t.n ? '' : ' disabled'}>${o ? 'Заказать у IT-Trade ещё раз' : 'Заказать у IT-Trade'}</button></div></div>`;
+    if (aeId === 'oGd') { const el = $('#oGd'); if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} } }
+  }
+  function ordState(s) { ORD.state = s; const el = $('#oState'); if (el) el.innerHTML = ordStateTxt(); }
+  let ordT = null;
+  function ordChanged(redraw) {
+    if (!ORD) return;
+    ORD.state = 'dirty'; clearTimeout(ordT); ordT = setTimeout(ordSave, 900);
+    if (redraw !== false) drawOrder();
+    drawAddBar(/^#\/order\//.test(location.hash)); refreshAdds();
+  }
+  async function ordSave() {
+    if (!ORD) return; clearTimeout(ordT);
+    const cur = ORD; ordState('saving');
+    try {
+      await db('kps?id=eq.' + U(cur.id), { method: 'PATCH', body: Object.assign({ client: cur.client, status: cur.status }, orderBody(cur.kp)) });
+      if (ORD === cur && cur.state === 'saving') ordState('saved');
+      CL.at = 0;
+    } catch (err) { if (ORD === cur) ordState('error'); toast('Заказ не сохранён: ' + err.message); }
+  }
+  function ordGuard() {
+    if (!ORD || ORD.status !== 'ordered' || ORD.warned) return true;
+    if (!confirm('Заказ уже отправлен в IT-Trade. Если поменять состав — сообщите менеджеру. Продолжить?')) return false;
+    ORD.warned = true; return true;
+  }
+  function ordSetQty(s, qn) {
+    if (!ORD || !ordGuard()) return;
+    qn = Math.max(0, Math.min(99999, Math.floor(Number(qn) || 0)));
+    const it = ORD.kp.items, i = it.findIndex(r => r[0] === s);
+    if (qn === 0) { if (i >= 0) it.splice(i, 1); } else if (i >= 0) it[i][1] = qn; else it.push([s, qn, null]);
+    ordChanged();
+  }
+  function drawAddBar(onOrderPage) {
+    let bar = $('#addbar');
+    if (!st.addTo || onOrderPage || !ORD || ORD.id !== st.addTo.id) { if (bar) bar.remove(); document.body.classList.remove('add-mode'); return; }
+    if (!bar) { bar = document.createElement('div'); bar.id = 'addbar'; bar.className = 'addbar'; document.body.appendChild(bar); }
+    document.body.classList.add('add-mode');
+    const t = totalsOf(ORD.kp);
+    bar.innerHTML = `<div class="ab-t"><b>Добавляете в заказ № ${ORD.num}${ORD.clientName ? ' · ' + esc(ORD.clientName) : ''}</b><small>${t.n} поз., ${t.pcs} шт · ${money(t.sum)} · ${ordStateTxt()}</small></div><button type="button" class="ab-x" data-abx aria-label="Выйти из режима">✕</button><button type="button" class="ab-ok" data-abok>Готово</button>`;
+  }
+  document.addEventListener('click', e => {
+    if (e.target.closest('#addbar [data-abok]')) { const id = st.addTo.id; st.addTo = null; location.hash = '#/order/' + id; return; }
+    if (e.target.closest('#addbar [data-abx]')) { st.addTo = null; drawAddBar(false); refreshAdds(); if (ORD && ORD.state === 'dirty') ordSave(); return; }
+  });
+  view.addEventListener('click', async e => {
+    if (!ORD || !$('.ord-pg', view)) return;
+    const t = e.target;
+    if (t.closest('[data-oretry]')) return ordSave();
+    if (t.closest('[data-oadd]')) { st.addTo = { id: ORD.id }; location.hash = st.lastCat || '#/'; toast('Нажимайте «+» у товаров — они попадут в заказ № ' + ORD.num); return; }
+    if (t.closest('[data-opdf]')) return run(t.closest('button'), () => asKP(ORD.kp, () => exportPDF(false)));
+    if (t.closest('[data-oxlsx]')) return run(t.closest('button'), () => asKP(ORD.kp, exportXLSX));
+    if (t.closest('[data-osend]')) return run(t.closest('button'), () => asKP(ORD.kp, () => exportPDF(true)));
+    if (t.closest('[data-oorder]')) return ordOrderDialog();
+    if (t.closest('[data-omenu]')) {
+      openModal(`<h2>Заказ № ${ORD.num}</h2><div class="om"><button type="button" data-omcopy>Сделать копию заказа</button><button type="button" data-omtocart>Скопировать в КП (черновик)</button><button type="button" class="red" data-omdel>Удалить заказ</button></div>`, async ev => {
+        if (ev.target.closest('[data-omcopy]')) { closeModal(); if (ORD.state === 'dirty') await ordSave(); copyOrder(ORD.id); }
+        if (ev.target.closest('[data-omtocart]')) { closeModal(); if (KP.items.length && !confirm('В КП уже есть товары. Заменить?')) return; KP = normKP(Object.assign({}, ORD.kp, { srv: null })); saveKP(); renderKP(); refreshAdds(); toast('Скопировано в КП'); }
+        if (ev.target.closest('[data-omdel]')) {
+          if (!confirm('Удалить заказ № ' + ORD.num + '?')) return;
+          try { clearTimeout(ordT); await db('kps?id=eq.' + U(ORD.id), { method: 'DELETE' }); ORD = null; CL.at = 0; closeModal(); location.hash = '#/orders'; toast('Заказ удалён'); } catch (err) { toast(err.message); }
+        }
+      });
+      return;
+    }
+    const r = t.closest('.or'), s = r && r.dataset.s; if (!s) return;
+    if (t.closest('[data-oldisc]')) { if (!ordGuard()) return; return lineDiscPrompt(s, ORD.kp, () => ordChanged()); }
+    if (t.closest('[data-odel]')) return ordSetQty(s, 0);
+    if (t.closest('[data-odec]')) return ordSetQty(s, kpQtyIn(ORD.kp, s) - 1);
+    if (t.closest('[data-oinc]')) return ordSetQty(s, kpQtyIn(ORD.kp, s) + 1);
+    if (t.closest('[data-open]')) { sheetPushed = true; location.hash = '#/p/' + encodeURIComponent(s); }
+  });
+  const kpQtyIn = (k, s) => { const r = k.items.find(x => x[0] === s); return r ? r[1] : 0; };
+  view.addEventListener('change', e => {
+    if (!ORD || !$('.ord-pg', view)) return;
+    const id = e.target.id;
+    if (id === 'oGd') { if (!ordGuard()) { drawOrder(); return; } const v = parseFloat(String(e.target.value).replace(',', '.')) || 0; ORD.kp.gd = Math.max(0, Math.min(90, Math.round(v * 10) / 10)); return ordChanged(); }
+    if (id === 'oStatus') { ORD.status = e.target.value; toast('Статус: ' + KST[ORD.status]); return ordChanged(); }
+    if (id === 'oClient') {
+      const v = e.target.value;
+      if (v === '__new') { pickClient('Клиент заказа', 'Готово', null, (cid, cname) => { ORD.client = cid; ORD.clientName = cname; if (!ORD.kp.client) ORD.kp.client = cname; ordChanged(); }); e.target.value = ORD.client || ''; return; }
+      ORD.client = v || null; ORD.clientName = v && CL.cById[v] ? CL.cById[v].name : ''; if (ORD.clientName) ORD.kp.client = ORD.clientName; return ordChanged();
+    }
+    if (e.target.classList.contains('oq')) { const r = e.target.closest('.or'); if (r) ordSetQty(r.dataset.s, e.target.value); }
+  });
+  function ordOrderDialog() {
+    const me = inst(); if (!me || !ORD) return;
+    const t = totalsOf(ORD.kp), cur = ORD;
+    openModal(`<h2>Заказать у IT-Trade</h2><p class="mp">Заказ № ${cur.num} уйдёт менеджеру IT-Trade по вашим закупочным ценам.</p>
+<div class="od"><div><span>Позиций / штук</span><b>${t.n} / ${t.pcs}</b></div><div><span>Сумма по вашему закупу (−${instDisc()} %)</span><b class="g">${money(t.buy)}</b></div>${t.unknown ? `<div><span>Позиции «по запросу»</span><b>${t.unknown}</b></div>` : ''}</div>
+<label class="fl"><span>Комментарий к заказу</span><textarea id="odCom" rows="3" placeholder="Сроки, доставка, счёт на…"></textarea></label>
+<div class="md-a"><span></span><button type="button" class="btn g" data-odsend>Отправить заказ</button></div>`, async e => {
+      if (!e.target.closest('[data-odsend]')) return;
+      const b = e.target.closest('button'); b.disabled = true;
+      try {
+        if (cur.state === 'dirty') await ordSave();
+        const items = cur.kp.items.map(r => { const it = BYSKU.get(r[0]); return { s: r[0], d: it.d, q: r[1], rrp: it.price, buy: buyPrice(it) }; });
+        await db('orders', { method: 'POST', body: { kp: cur.id, items, total_buy: t.buy, total_rrp: t.rrp, comment: $('#odCom').value.trim() } });
+        cur.status = 'ordered'; cur.warned = false; await ordSave();
+        closeModal(); CL.at = 0; try { await loadClients(true); } catch (x) {} drawOrder();
+        toast('Заказ отправлен в IT-Trade. Менеджер свяжется с вами.');
+      } catch (err) { toast(err.message); b.disabled = false; }
+    });
+  }
+  addEventListener('beforeunload', e => { if (ORD && (ORD.state === 'dirty' || ORD.state === 'saving')) { ordSave(); e.preventDefault(); e.returnValue = ''; } });
   /* ---------- тост ---------- */
   let tt;
   function toast(msg, act, fn) {
